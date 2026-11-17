@@ -16,6 +16,10 @@ import java.time.format.DateTimeFormatter
 
 class MainActivity : Activity() {
 
+    companion object {
+        const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
+    }
+
     private class Day(
         val date: LocalDate,
         val minutes: Map<String, Long>,
@@ -70,6 +74,8 @@ class MainActivity : Activity() {
         val a11y = isServiceEnabled()
         val usage = Usage.hasPermission(this)
         if (!a11y || !usage) setup(a11y, usage)
+
+        checkUpdate(g)
 
         val loading = note("Counting.")
         col.addView(loading)
@@ -294,7 +300,42 @@ class MainActivity : Activity() {
                     "It turns every open into a choice and shows you what you chose."
             ).apply { setPadding(dp(4), dp(22), dp(4), 0) }
         )
+        col.addView(note("Build ${currentBuild()}").apply { setPadding(dp(4), dp(10), 0, 0) })
     }
+
+    /** Asks GitHub for the newest build. If it is newer, shows an Update button at the top. */
+    private fun checkUpdate(g: Int) {
+        Thread {
+            val latest = try {
+                val c = java.net.URL("https://api.github.com/repos/ropikuronen/kitka/releases/latest")
+                    .openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 6000
+                c.readTimeout = 6000
+                c.setRequestProperty("Accept", "application/vnd.github+json")
+                val body = c.inputStream.bufferedReader().use { it.readText() }
+                org.json.JSONObject(body).optString("name").removePrefix("Build ").trim().toIntOrNull()
+            } catch (e: Exception) {
+                null
+            }
+            val mine = currentBuild()
+            if (latest != null && latest > mine) {
+                runOnUiThread {
+                    if (g != gen || isFinishing) return@runOnUiThread
+                    val p = panel("Update available")
+                    p.addView(tv("Build $latest is out. You have build $mine.", 15f, Pal.MUTED))
+                    p.addView(button("Download build $latest", primary = true) {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(APK_URL)))
+                    })
+                    p.addView(note("Your browser downloads it. Open the file and install over this one. Your data stays."))
+                    col.addView(p, 1)
+                }
+            }
+        }.start()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun currentBuild(): Int =
+        packageManager.getPackageInfo(packageName, 0).versionCode
 
     private fun labelOf(pkg: String): String? = try {
         @Suppress("DEPRECATION")
