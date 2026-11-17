@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kitka</string>
+    <string name="a11y_description">Kitka näyttää 10 sekunnin tauon ja Sulje-napin aina, kun avaat valitsemasi sovelluksen (esim. Instagram tai TikTok). Palvelu näkee vain, mikä sovellus on auki, ja laskee skrollaukset. Se ei lue näytön sisältöä eikä lähetä mitään minnekään.</string>
+</resources>
