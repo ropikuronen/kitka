@@ -148,6 +148,8 @@ object Store {
         val notes = ArrayList<String>()
         var pendPhone = p(ctx).getString("proof_next_phone", null)
         var pendStake = if (p(ctx).contains("proof_next_stake")) p(ctx).getInt("proof_next_stake", curStake) else null
+        if (phone == curPhone) pendPhone = null
+        if (stake == curStake) pendStake = null
         if (phone != curPhone) {
             if (force || curPhone.isEmpty()) { e.putString("friend_phone", phone); pendPhone = null; notes.add("Saved.") }
             else { pendPhone = phone; notes.add(if (phone.isEmpty()) "Removing the friend waits 24 hours." else "Changing the number waits 24 hours.") }

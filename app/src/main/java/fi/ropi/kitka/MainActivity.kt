@@ -278,7 +278,10 @@ class MainActivity : Activity() {
         if (phone.isNotEmpty()) pc.addView(kv("Text messages", if (Proof.canSms(this)) "Allowed" else "Not allowed"))
         if (phone.isNotEmpty() && Proof.smsSentToday(this)) pc.addView(kv("Today", "Sent"))
         Store.proofPending(this)?.let { pend ->
-            pc.addView(small("Waiting change: " + (if (pend.first.isEmpty()) "no friend" else pend.first) + ", ${pend.second} €, in ${fmtLeft(pend.third)}."))
+            val parts = ArrayList<String>()
+            if (pend.first != phone) parts.add(if (pend.first.isEmpty()) "remove friend" else "friend → ${pend.first}")
+            if (pend.second != Store.stake(this)) parts.add("stake → ${pend.second} €")
+            if (parts.isNotEmpty()) pc.addView(small("Waiting change: ${parts.joinToString(", ")}, in ${fmtLeft(pend.third)}."))
             pc.addView(underlineLink("Cancel the change") { Store.cancelProofPending(this); render() })
         }
         if (phone.isNotEmpty() && !Proof.canSms(this)) pc.addView(button("Allow text messages", primary = true) {
