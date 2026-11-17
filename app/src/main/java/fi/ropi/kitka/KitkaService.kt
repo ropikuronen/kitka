@@ -115,7 +115,10 @@ class KitkaService : AccessibilityService() {
         val now = System.currentTimeMillis()
         val gap = now - lastScrollAt
         lastScrollAt = now
-        if (gap > SCROLL_GAP_MS) { Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++ }
+        if (gap > SCROLL_GAP_MS) {
+            Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++
+            updateTimer(sessionEnd - System.currentTimeMillis())
+        }
     }
 
     // ---------- screens ----------
@@ -305,7 +308,7 @@ class KitkaService : AccessibilityService() {
     private fun updateTimer(leftMs: Long) {
         val t = timerText ?: return
         val secs = (leftMs / 1000).coerceAtLeast(0)
-        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left"
+        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left · $sessionSwipes swipes"
         val total = (sessionEnd - sessionStart).coerceAtLeast(1)
         val f = (leftMs.toFloat() / total).coerceIn(0f, 1f)
         val b = timerBar ?: return

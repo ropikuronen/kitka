@@ -119,6 +119,38 @@ object Store {
         return out.sortedBy { it.first }
     }
 
+    // ---------- Daily Proof by text message ----------
+    fun friendPhone(ctx: Context): String { applyProofPending(ctx); return p(ctx).getString("friend_phone", "") ?: "" }
+    fun stake(ctx: Context): Int { applyProofPending(ctx); return p(ctx).getInt("stake", 20) }
+
+    /** Pending looser proof settings (phone, stake, at). */
+    fun proofPending(ctx: Context): Triple<String, Int, Long>? {
+        val pr = p(ctx); val at = pr.getLong("proof_at", 0L)
+        return if (at > 0) Triple(pr.getString("proof_next_phone", "") ?: "", pr.getInt("proof_next_stake", 20), at) else null
+    }
+
+    private fun applyProofPending(ctx: Context) {
+        val pr = p(ctx); val at = pr.getLong("proof_at", 0L)
+        if (at in 1..System.currentTimeMillis()) {
+            pr.edit().putString("friend_phone", pr.getString("proof_next_phone", "")).putInt("stake", pr.getInt("proof_next_stake", 20))
+                .remove("proof_at").remove("proof_next_phone").remove("proof_next_stake").apply()
+        }
+    }
+
+    /** Adding a friend or raising the stake applies now. Removing/changing the friend or lowering the stake waits 24 h. */
+    fun setProof(ctx: Context, phone: String, stake: Int, force: Boolean = false): Boolean {
+        val curPhone = friendPhone(ctx); val curStake = stake(ctx)
+        val looser = !force && ((curPhone.isNotEmpty() && phone != curPhone) || stake < curStake)
+        val e = p(ctx).edit()
+        return if (!looser) {
+            e.putString("friend_phone", phone).putInt("stake", stake).remove("proof_at").remove("proof_next_phone").remove("proof_next_stake").apply(); true
+        } else {
+            e.putString("proof_next_phone", phone).putInt("proof_next_stake", stake).putLong("proof_at", System.currentTimeMillis() + Rules.DELAY_MS).apply(); false
+        }
+    }
+
+    fun cancelProofPending(ctx: Context) = p(ctx).edit().remove("proof_at").remove("proof_next_phone").remove("proof_next_stake").apply()
+
     /** Daily totals of minutes on selected apps, saved as days complete (Android keeps only ~a week). */
     fun dayTotals(ctx: Context): Map<String, Long> =
         (p(ctx).getStringSet("day_totals", emptySet()) ?: emptySet()).mapNotNull {

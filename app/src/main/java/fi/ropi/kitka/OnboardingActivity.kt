@@ -350,12 +350,45 @@ class OnboardingActivity : Activity() {
         content.addView(small("You can lower it any time. Raising it takes 24 hours.").apply { setPadding(0, dp(16), 0, 0) })
     }
 
+    private var proofFriend = false
+
     private fun proofStep() {
         title("Daily Proof")
-        sub("A short report every evening at 21:00. Writing progress down makes tracking work better.")
-        content.addView(space(16))
-        content.addView(option("Send it to me", true) {})
-        content.addView(option("Send it to a friend (soon)", false) {}.apply { alpha = 0.4f; isClickable = false })
+        sub("Every evening at 21:00 FinalApp sends a short report. Tracking works better when someone else sees it.")
+        content.addView(space(12))
+        val hasFriend = proofFriend || Store.friendPhone(this).isNotEmpty()
+        content.addView(option("Only me, as a notification", !hasFriend) { proofFriend = false; Store.setProof(this, "", Store.stake(this), force = true); render(false) })
+        content.addView(option("Me and a friend, by text message", hasFriend) { proofFriend = true; render(false) })
+        if (!hasFriend) return
+        val phone = EditText(this).apply {
+            hint = "Friend's number, e.g. +358 40 123 4567"; setHintTextColor(Pal.DIM); setTextColor(Pal.INK); textSize = 16f
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            setText(Store.friendPhone(this@OnboardingActivity))
+            background = rounded(Pal.BG, dpf(12f), Color.rgb(51, 51, 51), dp(1))
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) { Store.setProof(this@OnboardingActivity, s?.toString()?.trim() ?: "", Store.stake(this@OnboardingActivity), force = true) }
+            })
+        }
+        content.addView(phone, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(16) })
+        content.addView(tv("If you go over your limit, you owe them:", 15f, Pal.SOFT).apply { setPadding(0, dp(16), 0, dp(4)) })
+        val g = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val cur = Store.stake(this)
+        for ((i, e) in listOf(0, 10, 20, 50).withIndex()) {
+            val on = cur == e
+            g.addView(tv(if (e == 0) "Nothing" else "$e €", 16f, if (on) Pal.BG else Pal.INK, Fonts.MED).apply {
+                gravity = Gravity.CENTER; setPadding(0, dp(14), 0, dp(14))
+                background = if (on) rounded(Pal.INK, dpf(14f)) else rounded(Color.TRANSPARENT, dpf(14f), Color.rgb(51, 51, 51), dp(1))
+                isClickable = true
+                setOnClickListener { Store.setProof(this@OnboardingActivity, phone.text.toString().trim(), e, force = true); render(false) }
+            }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) leftMargin = dp(8) })
+        }
+        content.addView(g)
+        if (!Proof.canSms(this)) content.addView(button("Allow text messages", primary = false) { requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9) })
+        else content.addView(small("Text messages allowed."))
+        content.addView(small("Example: \"Today I scrolled 23 min. Closed 6 of 8 pauses. Under my 90 min limit. I don't owe you 20 €.\""))
     }
 
     private fun promise() {
@@ -414,7 +447,7 @@ class OnboardingActivity : Activity() {
         content.addView(big("You're all set.", 40f).apply { setPadding(0, dp(24), 0, 0) })
         content.addView(tv("Day 1 of 7 starts now.", 17f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
         val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        for (t in listOf("${Targets.active(this).size} apps", "${Rules.get(this, Rules.LIMIT)} min a day", "Proof at 21:00")) {
+        for (t in listOf("${Targets.active(this).size} apps", "${Rules.get(this, Rules.LIMIT)} min a day", if (Store.friendPhone(this).isEmpty()) "Proof at 21:00" else "Proof to a friend at 21:00")) {
             chips.addView(tv(t, 14f, Pal.SOFT).apply {
                 setPadding(dp(14), dp(8), dp(14), dp(8))
                 background = rounded(Color.TRANSPARENT, dpf(20f), Color.rgb(51, 51, 51), dp(1))

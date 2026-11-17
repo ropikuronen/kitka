@@ -202,6 +202,9 @@ class MainActivity : Activity() {
             val over = t.totalMin - s.limit
             a.addView(tv(if (over > 0) "$over min over your ${s.limit} min limit." else "${-over} min left of your ${s.limit} min limit.", 14f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
         } else a.addView(body("Allow usage access to see your minutes."))
+        a.addView(divider().apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14) })
+        a.addView(row(metric("${t.count(Ev.SCROLL)}", "swipes today"), metric("${t.count(Ev.CLOSE)} / ${t.gates}", "pauses closed")).apply { setPadding(0, dp(12), 0, 0) })
+        a.addView(small("In Reels, TikTok and Shorts one swipe is about one video."))
         col.addView(a); tourTargets["A"] = a
 
         // Urge entry
@@ -253,6 +256,20 @@ class MainActivity : Activity() {
         w.addView(row(metric(wonText, "won back"), metric(rate, "pauses closed")).apply { setPadding(0, dp(8), 0, 0) })
         if (won == null) w.addView(small("Shown after your first full day with FinalApp."))
         col.addView(w); tourTargets["W"] = w
+
+        // Daily Proof
+        val pc = card()
+        pc.addView(caps("Daily Proof · 21:00"))
+        pc.addView(tv(Proof.message(this, s), 15f, Pal.INK).apply {
+            setLineSpacing(0f, 1.35f)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = rounded(Pal.BG, dpf(12f))
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+        val phone = Store.friendPhone(this)
+        pc.addView(small(if (phone.isEmpty()) "Sent to: you, as a notification." else "Sent to: you, and to $phone by text message." + if (Proof.smsSentToday(this)) " Sent today." else ""))
+        if (phone.isNotEmpty() && !Proof.canSms(this)) pc.addView(tv("Text messages not allowed yet. Tap below.", 13f, Pal.INK).apply { setPadding(0, dp(6), 0, 0) })
+        pc.addView(underlineLink(if (phone.isEmpty()) "Send it to a friend by text message" else "Change who gets it") { editProof() })
+        col.addView(pc); tourTargets["P"] = pc
 
         // By app
         val apps = (t.minutes.filterValues { it >= 60_000 }.keys + t.counts.keys).distinct().sortedByDescending { t.minutes[it] ?: 0L }
@@ -475,7 +492,11 @@ class MainActivity : Activity() {
             setPadding(0, dp(14), 0, dp(14))
             val t = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
             t.addView(tv("Daily Proof", 16f))
-            t.addView(tv("Every evening. Sent to: you. Tap Share in it to send it to a friend.", 13f, Pal.MUTED))
+            val ph = Store.friendPhone(this@MainActivity)
+            t.addView(tv(if (ph.isEmpty()) "Every evening. Sent to: you. Tap to add a friend." else "Every evening. Sent to: you and $ph. Stake ${Store.stake(this@MainActivity)} €.", 13f, Pal.MUTED))
+            Store.proofPending(this@MainActivity)?.let { t.addView(tv("Changes in ${fmtLeft(it.third)}. Tap to cancel.", 13f, Pal.SOFT)) }
+            isClickable = true
+            setOnClickListener { if (Store.proofPending(this@MainActivity) != null) { Store.cancelProofPending(this@MainActivity); render() } else editProof() }
             addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
             addView(tv("21:00", 15f, Pal.INK, android.graphics.Typeface.MONOSPACE))
         })
@@ -558,6 +579,42 @@ class MainActivity : Activity() {
                 render()
             }
             .show()
+    }
+
+    private fun editProof() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(8), dp(22), 0) }
+        box.addView(tv("Friend's phone number. Empty = only you.", 13f, Pal.MUTED))
+        val phone = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            setText(Store.friendPhone(this@MainActivity)); setTextColor(Pal.INK); hint = "+358 40 123 4567"; setHintTextColor(Pal.DIM)
+        }
+        box.addView(phone)
+        box.addView(tv("Stake in euros. 0 = no stake.", 13f, Pal.MUTED).apply { setPadding(0, dp(12), 0, 0) })
+        val stake = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText("${Store.stake(this@MainActivity)}"); setTextColor(Pal.INK)
+        }
+        box.addView(stake)
+        box.addView(small("Adding a friend or raising the stake works now. Removing or lowering waits 24 hours."))
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Daily Proof by text message")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val p = phone.text.toString().trim()
+                val st = stake.text.toString().toIntOrNull()?.coerceIn(0, 1000) ?: 0
+                val now = Store.setProof(this, p, st)
+                if (p.isNotEmpty() && !Proof.canSms(this)) requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9)
+                if (!now) AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setMessage("That makes it easier, so it waits 24 hours.").setPositiveButton("OK", null).show()
+                render()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        render()
     }
 
     // ---------- Urge ----------
@@ -647,6 +704,7 @@ class MainActivity : Activity() {
         "U" to "Want to scroll? Tap this instead. It's for the weak moments.",
         "B" to "Your pace. The only way to make this number smaller is to scroll less. Sorry, not sorry.",
         "W" to "Time you won back. Counted per week, so one bad day doesn't reset it.",
+        "P" to "Your Daily Proof. This exact message goes out at 21:00.",
         "tab1" to "History: every day, hour and app. Nothing hidden.",
         "tab2" to "Science: your 7-day test, and the study behind every rule.",
         "tab3" to "Rules: stricter right away, easier only after 24 hours.",
