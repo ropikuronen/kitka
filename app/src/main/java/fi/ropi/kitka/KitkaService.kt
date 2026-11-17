@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter
 /**
  * The pause. When a selected app comes to the front:
  *  1. Pause screen: Close works at once, Open anyway unlocks after the pause.
- *  2. Choose a time: 2, 5 or 10 minutes.
+ *  2. Open anyway gives you 2 minutes.
  *  3. The app runs with a timer on top.
  *  4. Time is up: back to the home screen, the app is locked for a while.
  */
@@ -177,7 +177,7 @@ class KitkaService : AccessibilityService() {
         val cont = button("Open anyway in $secs", primary = false) {}
         cont.isEnabled = false
         cont.alpha = 0.4f
-        cont.setOnClickListener { if (cont.isEnabled) showChoose(pkg, name) }
+        cont.setOnClickListener { if (cont.isEnabled) startSession(pkg, 2) }
         col.addView(cont)
 
         if (!addOverlay(root, pkg, gate = true)) return
@@ -186,7 +186,7 @@ class KitkaService : AccessibilityService() {
             override fun run() {
                 if (overlay !== root) return
                 left--
-                if (left <= 0) { cont.isEnabled = true; cont.alpha = 1f; cont.text = "Open anyway" }
+                if (left <= 0) { cont.isEnabled = true; cont.alpha = 1f; cont.text = "Open anyway for 2 min" }
                 else { cont.text = "Open anyway in $left"; handler.postDelayed(this, 1000) }
             }
         }
