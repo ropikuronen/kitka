@@ -28,6 +28,7 @@ class MainActivity : Activity() {
         const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
         const val TODAY = 0; const val HISTORY = 1; const val SCIENCE = 2; const val RULES = 3
         const val URGE = 4; const val CREATOR = 5; const val LEAGUE = 6
+        val TAB_PAGES = intArrayOf(0, 6, 1, 2, 3)
     }
 
     private lateinit var scroll: ScrollView
@@ -126,7 +127,7 @@ class MainActivity : Activity() {
             setBackgroundColor(Pal.BG)
             setPadding(0, dp(8), 0, dp(10))
         }
-        val items = listOf(R.drawable.tab_today to "Today", R.drawable.tab_history to "History",
+        val items = listOf(R.drawable.tab_today to "Today", R.drawable.tab_league to "League", R.drawable.tab_history to "History",
             R.drawable.tab_science to "Science", R.drawable.tab_rules to "Rules")
         tabViews.clear()
         for ((i, item) in items.withIndex()) {
@@ -135,7 +136,7 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, dp(4))
                 isClickable = true
-                setOnClickListener { endTour(); open(i) }
+                setOnClickListener { endTour(); open(TAB_PAGES[i]) }
             }
             val icon = ImageView(this).apply { setImageResource(item.first) }
             cell.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
@@ -143,7 +144,7 @@ class MainActivity : Activity() {
             cell.addView(label)
             bar.addView(cell, LinearLayout.LayoutParams(0, WRAP, 1f))
             tabViews.add(icon to label)
-            tourTargets["tab$i"] = cell
+            tourTargets["tab${TAB_PAGES[i]}"] = cell
         }
         return bar
     }
@@ -156,7 +157,7 @@ class MainActivity : Activity() {
 
     private fun render() {
         for ((i, t) in tabViews.withIndex()) {
-            val c = if (i == page) Pal.INK else Pal.DIM
+            val c = if (TAB_PAGES[i] == page) Pal.INK else Pal.DIM
             t.first.setColorFilter(c, PorterDuff.Mode.SRC_IN)
             t.second.setTextColor(c)
         }
@@ -292,24 +293,6 @@ class MainActivity : Activity() {
         })
         col.addView(pc); tourTargets["P"] = pc
 
-        // League
-        val lc = card().apply { isClickable = true; setOnClickListener { endTour(); open(LEAGUE) } }
-        lc.addView(caps("League"))
-        val b = board
-        if (League.code(this).isEmpty()) {
-            lc.addView(tv("Compete with friends. Least scrolling this month wins the pot.", 17f, Pal.INK, Fonts.MED).apply { setPadding(0, dp(6), 0, 0) })
-            lc.addView(tv("Start or join a league", 14f, Pal.SOFT).apply { paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG; setPadding(0, dp(8), 0, 0) })
-        } else if (b == null || b.error != null) {
-            lc.addView(tv(if (b?.error != null) "Could not load: ${b.error}" else "Loading…", 15f, Pal.SOFT).apply { setPadding(0, dp(6), 0, 0) })
-        } else {
-            val month = LocalDate.now().toString().substring(0, 7)
-            val ranked = b.members.filter { it.avg(month) != null }.sortedBy { it.avg(month) }
-            val me = ranked.indexOfFirst { it.uid == League.uid(this) }
-            lc.addView(tv(if (me >= 0) "You're ${ordinal(me + 1)} of ${ranked.size} this month." else "No minutes from you yet this month.", 18f, Pal.INK, Fonts.BOLD).apply { setPadding(0, dp(6), 0, 0) })
-            for ((i, m) in ranked.take(3).withIndex()) lc.addView(kv("${i + 1}. ${m.name}", "${Math.round(m.avg(month) ?: 0f)} min/day"))
-            lc.addView(tv("Open league", 14f, Pal.SOFT).apply { paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG; setPadding(0, dp(6), 0, 0) })
-        }
-        col.addView(lc)
 
         // By app
         val apps = (t.minutes.filterValues { it >= 60_000 }.keys + t.counts.keys).distinct().sortedByDescending { t.minutes[it] ?: 0L }
@@ -686,8 +669,26 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun howLeague() {
+        col.addView(label("How it works"))
+        val h = card(top = 0)
+        val steps = listOf(
+            "Start a league and pick a pot, or join a friend's league with their code.",
+            "Invite friends. They need FinalApp on Android.",
+            "FinalApp counts your scrolling minutes on its own. Nothing to type in.",
+            "The leaderboard ranks everyone by average minutes per day this month. Lowest is first.",
+            "At the end of the month, the one at the top wins. Everyone else pays them the pot, for example with MobilePay.",
+            "A new month starts from zero.")
+        for ((i, t) in steps.withIndex()) {
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(if (i == 0) 0 else 10), 0, 0) }
+            r.addView(tv("${i + 1}", 15f, Pal.INK, Fonts.BOLD), LinearLayout.LayoutParams(dp(26), WRAP))
+            r.addView(tv(t, 15f, Pal.SOFT), LinearLayout.LayoutParams(0, WRAP, 1f))
+            h.addView(r)
+        }
+        col.addView(h)
+    }
+
     private fun renderLeague() {
-        backTo(TODAY, "Today")
         col.addView(big("League"))
         col.addView(tv("Least scrolling this month wins. Counted as average minutes per day, so joining late is fair.", 15f, Pal.MUTED).apply { setPadding(0, dp(4), 0, 0) })
         if (leagueBusy) col.addView(small("Working…"))
@@ -723,6 +724,7 @@ class MainActivity : Activity() {
                 leagueAction { League.join(this, codeIn.text.toString(), n) }
             })
             col.addView(c)
+            howLeague()
             col.addView(small("Your league sees your name and your minutes per day. Nothing else. We never sell, share or use it for anything else."))
             return
         }
@@ -746,7 +748,7 @@ class MainActivity : Activity() {
         }
         val month = LocalDate.now().toString().substring(0, 7)
         val ranked = b.members.filter { it.avg(month) != null }.sortedBy { it.avg(month) }
-        col.addView(label("This month"))
+        col.addView(label("Leaderboard · this month"))
         val lb = card(top = 0)
         if (ranked.isEmpty()) lb.addView(body("No minutes yet. They appear after the first sync.", Pal.MUTED))
         for ((i, m) in ranked.withIndex()) {
@@ -776,6 +778,7 @@ class MainActivity : Activity() {
                 if (b.pot > 0) addView(small("Everyone else owes ${lastRanked[0].name} ${b.pot} €."))
             })
         }
+        howLeague()
         col.addView(small("Your league sees your name and your minutes per day. Nothing else."))
         col.addView(underlineLink("Leave league") {
             AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
@@ -873,6 +876,7 @@ class MainActivity : Activity() {
         "B" to "Your pace. The only way to make this number smaller is to scroll less. Sorry, not sorry.",
         "W" to "Time you won back. Counted per week, so one bad day doesn't reset it.",
         "P" to "Your Daily Proof. This exact message goes out at 21:00.",
+        "tab6" to "League: compete with friends. Least scrolling this month wins the pot.",
         "tab1" to "History: every day, hour and app. Nothing hidden.",
         "tab2" to "Science: your 7-day test, and the study behind every rule.",
         "tab3" to "Rules: stricter right away, easier only after 24 hours.",
