@@ -266,9 +266,24 @@ class MainActivity : Activity() {
             background = rounded(Pal.BG, dpf(12f))
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
         val phone = Store.friendPhone(this)
-        pc.addView(small(if (phone.isEmpty()) "Sent to: you, as a notification." else "Sent to: you, and to $phone by text message." + if (Proof.smsSentToday(this)) " Sent today." else ""))
-        if (phone.isNotEmpty() && !Proof.canSms(this)) pc.addView(tv("Text messages not allowed yet. Tap below.", 13f, Pal.INK).apply { setPadding(0, dp(6), 0, 0) })
-        pc.addView(underlineLink(if (phone.isEmpty()) "Send it to a friend by text message" else "Change who gets it") { editProof() })
+        pc.addView(kv("Sent to", if (phone.isEmpty()) "You only" else "You + $phone"))
+        if (phone.isNotEmpty()) pc.addView(kv("Stake", "${Store.stake(this)} €"))
+        if (phone.isNotEmpty()) pc.addView(kv("Text messages", if (Proof.canSms(this)) "Allowed" else "Not allowed"))
+        if (phone.isNotEmpty() && Proof.smsSentToday(this)) pc.addView(kv("Today", "Sent"))
+        Store.proofPending(this)?.let { pend ->
+            pc.addView(small("Waiting change: " + (if (pend.first.isEmpty()) "no friend" else pend.first) + ", ${pend.second} €, in ${fmtLeft(pend.third)}."))
+            pc.addView(underlineLink("Cancel the change") { Store.cancelProofPending(this); render() })
+        }
+        if (phone.isNotEmpty() && !Proof.canSms(this)) pc.addView(button("Allow text messages", primary = true) {
+            requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9)
+        })
+        pc.addView(underlineLink(if (phone.isEmpty()) "Add one friend" else "Edit friend or stake") { editProof() })
+        if (phone.isNotEmpty() && Proof.canSms(this) && !Proof.smsSentToday(this)) pc.addView(underlineLink("Send a test text to them now (once)") {
+            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setMessage("Send today's message to $phone now? Tonight's 21:00 message is then skipped, so they get only one.")
+                .setPositiveButton("Send") { _, _ -> Thread { val ok = Proof.sendSms(this); runOnUiThread { toast(if (ok) "Sent." else "Could not send."); render() } }.start() }
+                .setNegativeButton("Cancel", null).show()
+        })
         col.addView(pc); tourTargets["P"] = pc
 
         // By app
@@ -599,7 +614,7 @@ class MainActivity : Activity() {
 
     private fun editProof() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(8), dp(22), 0) }
-        box.addView(tv("Friend's phone number. Empty = only you.", 13f, Pal.MUTED))
+        box.addView(tv("One friend. Phone number, e.g. +358401234567. Empty = only you.", 13f, Pal.MUTED))
         val phone = EditText(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_PHONE
             setText(Store.friendPhone(this@MainActivity)); setTextColor(Pal.INK); hint = "+358 40 123 4567"; setHintTextColor(Pal.DIM)
@@ -618,15 +633,16 @@ class MainActivity : Activity() {
             .setPositiveButton("Save") { _, _ ->
                 val p = phone.text.toString().trim()
                 val st = stake.text.toString().toIntOrNull()?.coerceIn(0, 1000) ?: 0
-                val now = Store.setProof(this, p, st)
+                val note = Store.setProof(this, p, st)
+                toast(note)
                 if (p.isNotEmpty() && !Proof.canSms(this)) requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9)
-                if (!now) AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setMessage("That makes it easier, so it waits 24 hours.").setPositiveButton("OK", null).show()
                 render()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
+
+    private fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_LONG).show()
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)

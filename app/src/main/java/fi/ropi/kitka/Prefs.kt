@@ -137,16 +137,31 @@ object Store {
         }
     }
 
-    /** Adding a friend or raising the stake applies now. Removing/changing the friend or lowering the stake waits 24 h. */
-    fun setProof(ctx: Context, phone: String, stake: Int, force: Boolean = false): Boolean {
+    /**
+     * Phone: adding a friend when none is set applies now; changing or removing waits 24 h.
+     * Stake: raising applies now; lowering waits 24 h. The two are handled separately.
+     * Returns a short note on what happened.
+     */
+    fun setProof(ctx: Context, phone: String, stake: Int, force: Boolean = false): String {
         val curPhone = friendPhone(ctx); val curStake = stake(ctx)
-        val looser = !force && ((curPhone.isNotEmpty() && phone != curPhone) || stake < curStake)
         val e = p(ctx).edit()
-        return if (!looser) {
-            e.putString("friend_phone", phone).putInt("stake", stake).remove("proof_at").remove("proof_next_phone").remove("proof_next_stake").apply(); true
-        } else {
-            e.putString("proof_next_phone", phone).putInt("proof_next_stake", stake).putLong("proof_at", System.currentTimeMillis() + Rules.DELAY_MS).apply(); false
+        val notes = ArrayList<String>()
+        var pendPhone = p(ctx).getString("proof_next_phone", null)
+        var pendStake = if (p(ctx).contains("proof_next_stake")) p(ctx).getInt("proof_next_stake", curStake) else null
+        if (phone != curPhone) {
+            if (force || curPhone.isEmpty()) { e.putString("friend_phone", phone); pendPhone = null; notes.add("Saved.") }
+            else { pendPhone = phone; notes.add(if (phone.isEmpty()) "Removing the friend waits 24 hours." else "Changing the number waits 24 hours.") }
         }
+        if (stake != curStake) {
+            if (force || stake > curStake) { e.putInt("stake", stake); pendStake = null; if (notes.isEmpty()) notes.add("Saved.") }
+            else { pendStake = stake; notes.add("Lowering the stake waits 24 hours.") }
+        }
+        if (pendPhone != null || pendStake != null) {
+            e.putString("proof_next_phone", pendPhone ?: curPhone).putInt("proof_next_stake", pendStake ?: curStake)
+                .putLong("proof_at", System.currentTimeMillis() + Rules.DELAY_MS)
+        } else e.remove("proof_at").remove("proof_next_phone").remove("proof_next_stake")
+        e.apply()
+        return notes.joinToString(" ").ifEmpty { "No change." }
     }
 
     fun cancelProofPending(ctx: Context) = p(ctx).edit().remove("proof_at").remove("proof_next_phone").remove("proof_next_stake").apply()
