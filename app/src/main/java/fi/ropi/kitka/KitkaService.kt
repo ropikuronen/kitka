@@ -131,27 +131,26 @@ class KitkaService : AccessibilityService() {
             setPadding(dp(28), dp(28), dp(28), dp(28))
         }
 
-        col.addView(helm(64))
-        col.addView(tv(name, 36f, Pal.INK, Fonts.HEAD).apply { setPadding(0, dp(18), 0, 0) })
+        col.addView(tv(name, 40f, Pal.INK, Fonts.MED))
         val line1 = if (isRecheck) {
-            "You have been here ${RECHECK_MS / 60_000} minutes in a row."
+            "${RECHECK_MS / 60_000} minutes in a row."
         } else {
-            "Open number $opens today."
+            "${ordinal(opens)} open today."
         }
-        col.addView(tv(line1, 17f, Pal.MUTED).apply { setPadding(0, dp(8), 0, 0) })
+        col.addView(tv(line1, 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
         if (minutes >= 0) {
-            col.addView(tv("${fmtMin(minutes)} in $name today.", 17f, Pal.MUTED))
+            col.addView(tv("${fmtMin(minutes)} so far today.", 18f, Pal.MUTED))
         }
 
-        col.addView(View(this), LinearLayout.LayoutParams(MATCH, dp(36)))
+        col.addView(View(this), LinearLayout.LayoutParams(MATCH, dp(48)))
 
-        col.addView(button("Close $name", primary = true) {
+        col.addView(button("Close", primary = true) {
             db.log(pkg, Ev.CLOSE)
             hideOverlay()
             performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
         })
 
-        val cont = button("Continue in $GATE_DELAY_S", primary = false) {}
+        val cont = button("Open anyway in $GATE_DELAY_S", primary = false) {}
         cont.isEnabled = false
         cont.alpha = 0.4f
         cont.setOnClickListener {
@@ -164,10 +163,6 @@ class KitkaService : AccessibilityService() {
             handler.postDelayed(recheck, RECHECK_MS)
         }
         col.addView(cont)
-        col.addView(
-            tv("The gate comes back after ${RECHECK_MS / 60_000} minutes in a row.", 13f, Pal.MUTED)
-                .apply { setPadding(0, dp(12), 0, 0); gravity = Gravity.CENTER }
-        )
 
         root.addView(col, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER))
 
@@ -194,9 +189,9 @@ class KitkaService : AccessibilityService() {
                 if (left <= 0) {
                     cont.isEnabled = true
                     cont.alpha = 1f
-                    cont.text = "Continue to $name"
+                    cont.text = "Open anyway"
                 } else {
-                    cont.text = "Continue in $left"
+                    cont.text = "Open anyway in $left"
                     handler.postDelayed(this, 1000)
                 }
             }

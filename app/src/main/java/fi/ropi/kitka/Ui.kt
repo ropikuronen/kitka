@@ -9,32 +9,24 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.Locale
 
-/**
- * Look: forged iron and old leather. Warm near-black, parchment text,
- * steel for neutral data, one crimson (the helmet plume) for actions and "today".
- * No gradients, no glow, no emoji.
- */
+/** Black and white. Grey for secondary things. No accent colour. */
 object Pal {
-    val BG = Color.rgb(22, 19, 15)
-    val SURFACE = Color.rgb(33, 28, 22)
-    val LINE = Color.rgb(60, 52, 42)
-    val INK = Color.rgb(238, 228, 208)
-    val MUTED = Color.rgb(156, 144, 125)
-    val STEEL = Color.rgb(112, 112, 108)
-    val CRIMSON = Color.rgb(178, 58, 50)
-    val BRASS = Color.rgb(201, 162, 91)
+    val BG = Color.rgb(0, 0, 0)
+    val SURFACE = Color.rgb(17, 17, 17)
+    val LINE = Color.rgb(38, 38, 38)
+    val INK = Color.rgb(255, 255, 255)
+    val MUTED = Color.rgb(140, 140, 140)
+    val DIM = Color.rgb(80, 80, 80)
 }
 
 object Fonts {
-    val HEAD: Typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-    val NUM: Typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-    val BODY: Typeface = Typeface.create("sans-serif", Typeface.NORMAL)
-    val BODY_MED: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    val REG: Typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    val MED: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    val BIG: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 }
 
 val EN: Locale = Locale.ENGLISH
@@ -55,91 +47,56 @@ fun Activity.paintWindow() {
     window.navigationBarColor = Pal.BG
 }
 
-fun Context.tv(text: String, size: Float, color: Int = Pal.INK, font: Typeface = Fonts.BODY): TextView =
+fun Context.tv(text: String, size: Float, color: Int = Pal.INK, font: Typeface = Fonts.REG): TextView =
     TextView(this).apply {
         this.text = text
         textSize = size
         setTextColor(color)
         typeface = font
-        setLineSpacing(0f, 1.15f)
+        setLineSpacing(0f, 1.2f)
     }
 
-/** The knight's helmet, cropped from the app icon art, in a rounded frame. */
-fun Context.helm(sizeDp: Int): ImageView =
-    ImageView(this).apply {
-        setImageResource(R.drawable.helm_art)
-        scaleType = ImageView.ScaleType.CENTER_CROP
-        background = GradientDrawable().apply {
-            cornerRadius = dpf(sizeDp * 0.22f)
-            setColor(Pal.SURFACE)
-        }
-        clipToOutline = true
-        layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
+/** Page title at the top of each tab. */
+fun Context.pageTitle(text: String): TextView =
+    tv(text, 30f, Pal.INK, Fonts.MED).apply {
+        letterSpacing = -0.01f
+        setPadding(0, dp(20), 0, dp(4))
     }
 
-/** Framed square tile: big value on top, small caps label under it. */
-fun Context.tile(value: String, label: String, valueColor: Int = Pal.INK): LinearLayout =
+/** Small grey heading above a group. */
+fun Context.label(text: String): TextView =
+    tv(text, 13f, Pal.MUTED, Fonts.MED).apply { setPadding(0, dp(28), 0, dp(8)) }
+
+fun Context.body(text: String, color: Int = Pal.MUTED): TextView =
+    tv(text, 15f, color).apply { setPadding(0, dp(6), 0, 0) }
+
+fun Context.small(text: String): TextView =
+    tv(text, 13f, Pal.MUTED).apply { setPadding(0, dp(8), 0, 0) }
+
+/** Rounded dark block that groups related rows. */
+fun Context.card(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER
-        setPadding(dp(6), dp(16), dp(6), dp(14))
+        setPadding(dp(18), dp(16), dp(18), dp(16))
         background = GradientDrawable().apply {
             setColor(Pal.SURFACE)
-            setStroke(dp(1), Pal.LINE)
-            cornerRadius = dpf(6f)
+            cornerRadius = dpf(14f)
         }
-        addView(tv(value, 30f, valueColor, Fonts.NUM).apply { gravity = Gravity.CENTER })
-        addView(tv(label, 11f, Pal.MUTED, Fonts.BODY_MED).apply {
-            gravity = Gravity.CENTER
-            letterSpacing = 0.08f
-        })
-    }
-
-fun Context.tileRow(vararg tiles: LinearLayout): LinearLayout =
-    LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
         layoutParams = LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) }
-        for ((i, t) in tiles.withIndex()) {
-            addView(t, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) leftMargin = dp(10) })
-        }
     }
 
-/** A framed block. Everything on the main screen lives in one of these. */
-fun Context.panel(title: String? = null): LinearLayout =
-    LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(18), dp(16), dp(18), dp(18))
-        background = GradientDrawable().apply {
-            setColor(Pal.SURFACE)
-            setStroke(dp(1), Pal.LINE)
-            cornerRadius = dpf(6f)
-        }
-        layoutParams = LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(14) }
-        if (title != null) {
-            addView(tv(title, 19f, Pal.INK, Fonts.HEAD).apply { setPadding(0, 0, 0, dp(10)) })
-        }
-    }
-
-fun Context.note(text: String): TextView =
-    tv(text, 13f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) }
-
-/**
- * Buttons look like buttons: full width, filled or framed, with a clear label.
- * Primary = crimson fill. Secondary = framed.
- */
+/** White filled = main action. Grey outline = other action. */
 fun Context.button(text: String, primary: Boolean, onClick: () -> Unit): TextView =
-    tv(text, if (primary) 18f else 16f, Pal.INK, Fonts.BODY_MED).apply {
+    tv(text, 16f, if (primary) Pal.BG else Pal.INK, Fonts.MED).apply {
         gravity = Gravity.CENTER
-        letterSpacing = 0.02f
-        val v = if (primary) dp(17) else dp(14)
-        setPadding(dp(16), v, dp(16), v)
+        setPadding(dp(16), dp(15), dp(16), dp(15))
         background = GradientDrawable().apply {
-            cornerRadius = dpf(5f)
+            cornerRadius = dpf(28f)
             if (primary) {
-                setColor(Pal.CRIMSON)
+                setColor(Pal.INK)
             } else {
-                setColor(Pal.BG)
-                setStroke(dp(1), Pal.MUTED)
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(1), Pal.DIM)
             }
         }
         isClickable = true
@@ -147,59 +104,52 @@ fun Context.button(text: String, primary: Boolean, onClick: () -> Unit): TextVie
         layoutParams = LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) }
     }
 
-/** Big number with a small label under it. Used three in a row. */
-fun Context.stat(value: String, label: String, color: Int = Pal.INK): LinearLayout =
+/** Number over a label, for rows of 2 or 3. */
+fun Context.metric(value: String, label: String): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(tv(value, 28f, color, Fonts.NUM))
-        addView(tv(label, 12f, Pal.MUTED, Fonts.BODY_MED).apply { letterSpacing = 0.06f })
+        addView(tv(value, 26f, Pal.INK, Fonts.BIG))
+        addView(tv(label, 13f, Pal.MUTED))
     }
 
-fun Context.statRow(vararg stats: LinearLayout): LinearLayout =
-    LinearLayout(this).apply {
+fun Context.metricRow(vararg m: LinearLayout): LinearLayout =
+    card().apply {
         orientation = LinearLayout.HORIZONTAL
-        setPadding(0, dp(6), 0, 0)
-        for (s in stats) addView(s, LinearLayout.LayoutParams(0, WRAP, 1f))
+        for (x in m) addView(x, LinearLayout.LayoutParams(0, WRAP, 1f))
     }
-
-/** One app: name, minutes, and a thin bar showing its share. */
-fun Context.appBar(name: String, right: String, fraction: Float, accent: Boolean): LinearLayout {
-    val ctx = this
-    return LinearLayout(ctx).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(0, dp(8), 0, dp(6))
-        val top = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(ctx.tv(name, 15f), LinearLayout.LayoutParams(0, WRAP, 1f))
-            addView(ctx.tv(right, 14f, Pal.MUTED, Fonts.BODY_MED))
-        }
-        addView(top)
-        val f = fraction.coerceIn(0.01f, 1f)
-        val track = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(6), 0, 0)
-        }
-        track.addView(
-            View(ctx).apply { setBackgroundColor(if (accent) Pal.CRIMSON else Pal.STEEL) },
-            LinearLayout.LayoutParams(0, dp(5), f)
-        )
-        track.addView(
-            View(ctx).apply { setBackgroundColor(Pal.LINE) },
-            LinearLayout.LayoutParams(0, dp(5), (1f - f).coerceAtLeast(0.0001f))
-        )
-        addView(track)
-    }
-}
 
 /** Label left, value right. */
-fun Context.kv(left: String, right: String, rightColor: Int = Pal.INK): LinearLayout =
+fun Context.kv(left: String, right: String): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(0, dp(7), 0, dp(7))
+        setPadding(0, dp(10), 0, dp(10))
         addView(tv(left, 15f, Pal.MUTED), LinearLayout.LayoutParams(0, WRAP, 1f))
-        addView(tv(right, 17f, rightColor, Fonts.NUM))
+        addView(tv(right, 15f, Pal.INK, Fonts.MED))
     }
+
+/** One app: name and minutes, thin bar under it. */
+fun Context.appBar(name: String, right: String, fraction: Float): LinearLayout {
+    val ctx = this
+    return LinearLayout(ctx).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(9), 0, dp(9))
+        addView(LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(ctx.tv(name, 15f), LinearLayout.LayoutParams(0, WRAP, 1f))
+            addView(ctx.tv(right, 15f, Pal.MUTED))
+        })
+        val f = fraction.coerceIn(0.01f, 1f)
+        addView(LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+            addView(View(ctx).apply {
+                background = GradientDrawable().apply { setColor(Pal.INK); cornerRadius = dpf(2f) }
+            }, LinearLayout.LayoutParams(0, dp(4), f))
+            addView(View(ctx), LinearLayout.LayoutParams(0, dp(4), (1f - f).coerceAtLeast(0.0001f)))
+        })
+    }
+}
 
 fun Context.divider(): View =
     View(this).apply {
@@ -219,5 +169,12 @@ fun fmtLeft(untilMs: Long): String {
     val ms = (untilMs - System.currentTimeMillis()).coerceAtLeast(0)
     val h = ms / 3_600_000
     val m = (ms / 60_000) % 60
-    return if (h > 0) "${h}h ${m}m" else "${m}m"
+    return if (h > 0) "${h} h ${m} min" else "$m min"
+}
+
+fun ordinal(n: Int): String {
+    val suffix = if (n % 100 in 11..13) "th" else when (n % 10) {
+        1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th"
+    }
+    return "$n$suffix"
 }

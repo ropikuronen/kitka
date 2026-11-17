@@ -41,7 +41,7 @@ class BarChart(ctx: Context) : View(ctx) {
         val baseY = top + chartH
         val n = values.size
         val slot = width.toFloat() / n
-        val barW = slot * 0.54f
+        val barW = slot * 0.46f
         val max = (fixedMax ?: maxOf(values.maxOrNull() ?: 0f, average ?: 0f)).coerceAtLeast(1f)
 
         // baseline
@@ -59,18 +59,18 @@ class BarChart(ctx: Context) : View(ctx) {
             } else {
                 val v = values[i]
                 val h = (v / max) * chartH
-                bar.color = if (isHi) Pal.CRIMSON else Pal.STEEL
-                c.drawRect(cx - barW / 2, baseY - h, cx + barW / 2, baseY, bar)
+                bar.color = if (isHi) Pal.INK else Pal.DIM
+                c.drawRoundRect(cx - barW / 2, baseY - h, cx + barW / 2, baseY, ctx.dpf(3f), ctx.dpf(3f), bar)
                 text.color = if (isHi) Pal.INK else Pal.MUTED
                 text.textSize = ctx.dpf(11f)
-                text.typeface = Fonts.BODY_MED
+                text.typeface = Fonts.MED
                 c.drawText(valueText(v), cx, baseY - h - ctx.dpf(6f), text)
             }
             text.color = if (isHi) Pal.INK else Pal.MUTED
             text.textSize = ctx.dpf(12f)
-            text.typeface = Fonts.BODY_MED
+            text.typeface = Fonts.MED
             labelsTop.getOrNull(i)?.let { c.drawText(it, cx, baseY + ctx.dpf(16f), text) }
-            text.typeface = Fonts.BODY
+            text.typeface = Fonts.REG
             text.textSize = ctx.dpf(11f)
             labelsBottom.getOrNull(i)?.let { c.drawText(it, cx, baseY + ctx.dpf(31f), text) }
         }
@@ -78,14 +78,14 @@ class BarChart(ctx: Context) : View(ctx) {
         val avg = average
         if (avg != null && avg > 0f) {
             val y = baseY - (avg / max) * chartH
-            line.color = Pal.BRASS
+            line.color = Pal.MUTED
             line.strokeWidth = ctx.dpf(1.5f)
             line.pathEffect = DashPathEffect(floatArrayOf(ctx.dpf(6f), ctx.dpf(5f)), 0f)
             c.drawLine(0f, y, width.toFloat(), y, line)
             if (averageLabel.isNotEmpty()) {
-                text.color = Pal.BRASS
+                text.color = Pal.MUTED
                 text.textSize = ctx.dpf(11f)
-                text.typeface = Fonts.BODY_MED
+                text.typeface = Fonts.MED
                 text.textAlign = Paint.Align.RIGHT
                 c.drawText(averageLabel, width.toFloat(), (y - ctx.dpf(5f)).coerceAtLeast(ctx.dpf(11f)), text)
                 text.textAlign = Paint.Align.CENTER
