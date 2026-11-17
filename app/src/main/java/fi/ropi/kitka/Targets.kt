@@ -74,6 +74,16 @@ object Targets {
         prefs(ctx).edit().putStringSet("pending", encode(pendingRemovals(ctx) - pkg)).apply()
     }
 
+    /** Only used during first setup, before any rules exist. */
+    fun removeNow(ctx: Context, pkg: String) {
+        val cur = active(ctx).toMutableSet()
+        cur.remove(pkg)
+        prefs(ctx).edit()
+            .putStringSet("targets", HashSet(cur))
+            .putStringSet("pending", encode(pendingRemovals(ctx) - pkg))
+            .apply()
+    }
+
     private fun encode(m: Map<String, Long>): Set<String> =
         m.map { "${it.key}|${it.value}" }.toHashSet()
 }
