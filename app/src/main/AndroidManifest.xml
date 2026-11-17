@@ -33,11 +33,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".AppPickerActivity"
-            android:exported="false"
-            android:label="Kohdesovellukset" />
-
         <service
             android:name=".KitkaService"
             android:exported="true"

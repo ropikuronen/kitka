@@ -64,10 +64,44 @@ fun Context.tv(text: String, size: Float, color: Int = Pal.INK, font: Typeface =
         setLineSpacing(0f, 1.15f)
     }
 
+/** The knight's helmet, cropped from the app icon art, in a rounded frame. */
 fun Context.helm(sizeDp: Int): ImageView =
     ImageView(this).apply {
-        setImageResource(R.drawable.ic_helm)
+        setImageResource(R.drawable.helm_art)
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        background = GradientDrawable().apply {
+            cornerRadius = dpf(sizeDp * 0.22f)
+            setColor(Pal.SURFACE)
+        }
+        clipToOutline = true
         layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
+    }
+
+/** Framed square tile: big value on top, small caps label under it. */
+fun Context.tile(value: String, label: String, valueColor: Int = Pal.INK): LinearLayout =
+    LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(dp(6), dp(16), dp(6), dp(14))
+        background = GradientDrawable().apply {
+            setColor(Pal.SURFACE)
+            setStroke(dp(1), Pal.LINE)
+            cornerRadius = dpf(6f)
+        }
+        addView(tv(value, 30f, valueColor, Fonts.NUM).apply { gravity = Gravity.CENTER })
+        addView(tv(label, 11f, Pal.MUTED, Fonts.BODY_MED).apply {
+            gravity = Gravity.CENTER
+            letterSpacing = 0.08f
+        })
+    }
+
+fun Context.tileRow(vararg tiles: LinearLayout): LinearLayout =
+    LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) }
+        for ((i, t) in tiles.withIndex()) {
+            addView(t, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) leftMargin = dp(10) })
+        }
     }
 
 /** A framed block. Everything on the main screen lives in one of these. */
