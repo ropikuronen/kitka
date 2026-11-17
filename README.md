@@ -1,4 +1,4 @@
-# Kitka
+# ScrollSlayer
 
 Oma Android-sovellus somen skrollauksen vähentämiseen. Vain itselle, ei Play Kauppaa.
 
@@ -29,9 +29,9 @@ Rehellisesti: näyttö on lyhyen aikavälin vaikutuksista (viikkoja). Mikään t
    https://github.com/ropikuronen/kitka/releases/latest/download/app.apk
 2. Salli asennus selaimesta, kun Android kysyy. Asenna.
 3. Avaa sovellus ja seuraa käyttöönottoa:
-   - Esteettömyys > Asennetut sovellukset > Kitka > päälle.
+   - Esteettömyys > Asennetut sovellukset > ScrollSlayer > päälle.
    - Jos tulee "Rajoitettu asetus": Sovelluksen tiedot > kolme pistettä oikealla ylhäällä > Salli rajoitetut asetukset. Sitten uudestaan esteettömyyteen.
-   - Käyttötilastojen käyttöoikeus > Kitka > salli.
+   - Käyttötilastojen käyttöoikeus > ScrollSlayer > salli.
 
 Päivitys: lataa sama linkki uudestaan ja asenna päälle. Data säilyy, koska jokainen build allekirjoitetaan samalla avaimella (`app/debug.keystore`).
 
