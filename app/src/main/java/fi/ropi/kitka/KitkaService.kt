@@ -1,6 +1,7 @@
 package fi.ropi.kitka
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
@@ -11,16 +12,14 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.TextView
 import java.time.LocalDate
 
 /**
- * Portti. Kun kohdesovellus tulee etualalle, päälle tulee koko näytön kerros:
- *  - Sulje toimii heti (PNAS 2023: sulkemisvaihtoehto oli tehokkain osa).
- *  - Jatka aukeaa vasta viiveen jälkeen (viive vaikutti myös).
- *  - Ei pohdintaviestejä (niillä ei ollut vaikutusta).
- * Jatkamisen jälkeen portti tulee uudestaan, jos olet ollut sovelluksessa
- * RECHECK_MS putkeen.
+ * The gate. When a guarded app comes to the front, a full-screen layer covers it:
+ *  - Close works at once (PNAS 2023: the option to dismiss was the strongest part).
+ *  - Continue unlocks after a delay (the delay also helped, less).
+ *  - No reflection prompts (they had no effect).
+ * After Continue, the gate comes back if you stay RECHECK_MS in a row.
  */
 class KitkaService : AccessibilityService() {
 
@@ -28,6 +27,10 @@ class KitkaService : AccessibilityService() {
         const val GATE_DELAY_S = 10
         const val RECHECK_MS = 10L * 60 * 1000
         const val SCROLL_GAP_MS = 800L
+
+        /** When the gate was first turned on. Opens are counted from here. */
+        fun since(ctx: Context): Long =
+            ctx.getSharedPreferences("kitka", Context.MODE_PRIVATE).getLong("since", 0L)
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -43,6 +46,8 @@ class KitkaService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         wm = getSystemService(WindowManager::class.java)
+        val p = getSharedPreferences("kitka", Context.MODE_PRIVATE)
+        if (!p.contains("since")) p.edit().putLong("since", System.currentTimeMillis()).apply()
         ignored.addAll(
             listOf(
                 packageName,
@@ -57,7 +62,7 @@ class KitkaService : AccessibilityService() {
                 ?.enabledInputMethodList
                 ?.forEach { ignored.add(it.packageName) }
         } catch (e: Exception) {
-            // Näppäimistölistan haku ei ole kriittinen.
+            // Keyboard list is not critical.
         }
     }
 
@@ -73,7 +78,7 @@ class KitkaService : AccessibilityService() {
     private fun onWindow(pkg: String) {
         if (pkg in ignored) return
 
-        // Poistuit portilta kotinapilla tai eleellä -> lasketaan sulkemiseksi.
+        // Left the gate with Home or a gesture: counts as Close.
         if (overlay != null && pkg != overlayPkg) {
             overlayPkg?.let { Db.get(this).log(it, Ev.CLOSE) }
             hideOverlay()
@@ -92,7 +97,7 @@ class KitkaService : AccessibilityService() {
         }
     }
 
-    /** Arvio pyyhkäisyistä: uusi pyyhkäisy, kun edellisestä scroll-tapahtumasta on tauko. */
+    /** Swipe estimate: a new swipe starts when scroll events pause for a moment. */
     private fun onScroll(pkg: String) {
         if (overlay != null || pkg != allowedPkg) return
         val now = System.currentTimeMillis()
@@ -113,7 +118,8 @@ class KitkaService : AccessibilityService() {
         val db = Db.get(this)
         db.log(pkg, if (isRecheck) Ev.RECHECK else Ev.ATTEMPT)
 
-        val attempts = db.countToday(pkg, Ev.ATTEMPT)
+        val name = appLabel(pkg)
+        val opens = db.countToday(pkg, Ev.ATTEMPT)
         val minutes: Long = if (Usage.hasPermission(this)) {
             val (s, e) = Usage.dayBounds(LocalDate.now())
             (Usage.foregroundMs(this, s, e, setOf(pkg))[pkg] ?: 0L) / 60_000
@@ -125,24 +131,29 @@ class KitkaService : AccessibilityService() {
             setPadding(dp(28), dp(28), dp(28), dp(28))
         }
 
-        col.addView(tv(appLabel(pkg), 34f, Pal.INK, Fonts.HEAD))
-        val line1 = if (isRecheck) "${RECHECK_MS / 60_000} min putkeen." else "$attempts. avausyritys tänään."
-        col.addView(tv(line1, 17f, Pal.MUTED, Fonts.NUM).apply { setPadding(0, dp(10), 0, 0) })
+        col.addView(helm(64))
+        col.addView(tv(name, 36f, Pal.INK, Fonts.HEAD).apply { setPadding(0, dp(18), 0, 0) })
+        val line1 = if (isRecheck) {
+            "You have been here ${RECHECK_MS / 60_000} minutes in a row."
+        } else {
+            "Open number $opens today."
+        }
+        col.addView(tv(line1, 17f, Pal.MUTED).apply { setPadding(0, dp(8), 0, 0) })
         if (minutes >= 0) {
-            col.addView(tv("$minutes min tänään.", 17f, Pal.MUTED, Fonts.NUM).apply { setPadding(0, dp(4), 0, 0) })
+            col.addView(tv("${fmtMin(minutes)} in $name today.", 17f, Pal.MUTED))
         }
 
-        col.addView(View(this), LinearLayout.LayoutParams(MATCH, dp(40)))
+        col.addView(View(this), LinearLayout.LayoutParams(MATCH, dp(36)))
 
-        col.addView(action("Sulje", primary = true) {
+        col.addView(button("Close $name", primary = true) {
             db.log(pkg, Ev.CLOSE)
             hideOverlay()
             performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
         })
 
-        val cont = action("Jatka ($GATE_DELAY_S)", primary = false) {}
+        val cont = button("Continue in $GATE_DELAY_S", primary = false) {}
         cont.isEnabled = false
-        cont.alpha = 0.35f
+        cont.alpha = 0.4f
         cont.setOnClickListener {
             if (!cont.isEnabled) return@setOnClickListener
             db.log(pkg, Ev.CONTINUE)
@@ -153,6 +164,10 @@ class KitkaService : AccessibilityService() {
             handler.postDelayed(recheck, RECHECK_MS)
         }
         col.addView(cont)
+        col.addView(
+            tv("The gate comes back after ${RECHECK_MS / 60_000} minutes in a row.", 13f, Pal.MUTED)
+                .apply { setPadding(0, dp(12), 0, 0); gravity = Gravity.CENTER }
+        )
 
         root.addView(col, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER))
 
@@ -179,9 +194,9 @@ class KitkaService : AccessibilityService() {
                 if (left <= 0) {
                     cont.isEnabled = true
                     cont.alpha = 1f
-                    cont.text = "Jatka"
+                    cont.text = "Continue to $name"
                 } else {
-                    cont.text = "Jatka ($left)"
+                    cont.text = "Continue in $left"
                     handler.postDelayed(this, 1000)
                 }
             }
@@ -195,7 +210,7 @@ class KitkaService : AccessibilityService() {
             try {
                 wm?.removeView(v)
             } catch (e: Exception) {
-                // jo poistettu
+                // already gone
             }
         }
         overlay = null

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ScrollSlayer</string>
-    <string name="a11y_description">ScrollSlayer näyttää 10 sekunnin tauon ja Sulje-napin aina, kun avaat valitsemasi sovelluksen (esim. Instagram tai TikTok). Palvelu näkee vain, mikä sovellus on auki, ja laskee skrollaukset. Se ei lue näytön sisältöä eikä lähetä mitään minnekään.</string>
+    <string name="a11y_description">ScrollSlayer puts a gate in front of the apps you choose (Instagram, TikTok and so on). Close works at once, Continue unlocks after 10 seconds. The service only sees which app is open and counts scroll events. It does not read what is on screen and sends nothing anywhere.</string>
 </resources>

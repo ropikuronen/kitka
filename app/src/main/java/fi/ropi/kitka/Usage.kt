@@ -30,6 +30,22 @@ object Usage {
     }
 
     /**
+     * Rough total over a long range (month, year) from Android's daily/weekly/monthly buckets.
+     * Buckets can stick out past the range edges, so treat as approximate.
+     */
+    fun aggregateMs(ctx: Context, start: Long, end: Long, pkgs: Set<String>): Long {
+        if (end <= start || !hasPermission(ctx)) return 0L
+        val usm = ctx.getSystemService(UsageStatsManager::class.java) ?: return 0L
+        return try {
+            usm.queryAndAggregateUsageStats(start, end)
+                .filterKeys { it in pkgs }
+                .values.sumOf { it.totalTimeInForeground }
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    /**
      * Millisekunnit etualalla välillä [start, end) annetuille paketeille.
      * Sovellus lasketaan etualalle, kun jokin sen aktiviteeteista on resumed-tilassa.
      * Näytön sammuminen katkaisee kaikki käynnissä olevat jaksot.
