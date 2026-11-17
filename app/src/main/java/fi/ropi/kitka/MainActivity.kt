@@ -110,6 +110,10 @@ class MainActivity : Activity() {
         if (!::col.isInitialized) return
         Proof.schedule(this)
         render()
+        if (allApps == null) Thread {
+            val a = Perms.installedApps(this)
+            runOnUiThread { if (!isFinishing) { allApps = a; if (page == RULES && showAllApps) render() } }
+        }.start()
         Thread {
             val s = Stats.compute(this)
             runOnUiThread { if (!isFinishing) { stats = s; render() } }
@@ -570,7 +574,8 @@ class MainActivity : Activity() {
         list.removeAllViews()
         val targets = Targets.active(this)
         val pending = Targets.pendingRemovals(this)
-        val apps = allApps ?: Perms.installedApps(this).also { allApps = it }
+        val apps = allApps ?: targets.map { pkg ->
+            pkg to (runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)) }
         val q = appQuery.trim().lowercase(EN)
         val shown = if (showAllApps) apps.filter { q.isEmpty() || it.second.lowercase(EN).contains(q) }.sortedBy { it.first !in targets }
                     else apps.filter { it.first in targets }
