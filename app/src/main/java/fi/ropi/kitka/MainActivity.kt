@@ -203,8 +203,8 @@ class MainActivity : Activity() {
             a.addView(tv(if (over > 0) "$over min over your ${s.limit} min limit." else "${-over} min left of your ${s.limit} min limit.", 14f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
         } else a.addView(body("Allow usage access to see your minutes."))
         a.addView(divider().apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14) })
-        a.addView(row(metric("${t.count(Ev.SCROLL)}", "swipes today"), metric("${t.count(Ev.CLOSE)} / ${t.gates}", "pauses closed")).apply { setPadding(0, dp(12), 0, 0) })
-        a.addView(small("In Reels, TikTok and Shorts one swipe is about one video."))
+        a.addView(row(metric("${t.count(Ev.SCROLL)}", "videos today"), metric("${t.count(Ev.CLOSE)} / ${t.gates}", "pauses closed")).apply { setPadding(0, dp(12), 0, 0) })
+        a.addView(small("Counted from swipes. In Reels, TikTok and Shorts one swipe is one video."))
         col.addView(a); tourTargets["A"] = a
 
         // Urge entry
@@ -318,7 +318,7 @@ class MainActivity : Activity() {
         pageTitle("History")
         val t = s.today
         col.addView(card(top = 16).apply {
-            addView(row(metric("${t.count(Ev.ATTEMPT)}", "Opens today"), metric("${t.count(Ev.CLOSE)}", "Closed"), metric("${t.count(Ev.SCROLL)}", "Swipes")))
+            addView(row(metric("${t.count(Ev.ATTEMPT)}", "Opens today"), metric("${t.count(Ev.CLOSE)}", "Closed"), metric("${t.count(Ev.SCROLL)}", "Videos")))
         })
 
         col.addView(label("Minutes per day"))
@@ -332,6 +332,22 @@ class MainActivity : Activity() {
                 average = s.avg7
                 averageLabel = "avg ${Math.round(s.avg7)}"
             })
+        })
+
+        col.addView(label("Videos per day"))
+        col.addView(card(top = 0).apply {
+            addView(BarChart(this@MainActivity).apply {
+                values = week.map { it.count(Ev.SCROLL).toFloat() }
+                labelsTop = week.map { it.date.format(dayAbbr) }
+                labelsBottom = week.map { it.date.format(dayNum) }
+                highlight = week.size - 1
+            })
+            val byApp = t.counts.mapValues { it.value[Ev.SCROLL] ?: 0 }.filterValues { it > 0 }.toList().sortedByDescending { it.second }
+            if (byApp.isNotEmpty()) {
+                addView(divider().apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(10) })
+                for ((p, n) in byApp) addView(kv(s.labels[p] ?: p, "$n videos today"))
+            }
+            addView(small("Counted from swipes while you scroll. Only after Open anyway."))
         })
 
         col.addView(label("When you scroll (last 7 days)"))

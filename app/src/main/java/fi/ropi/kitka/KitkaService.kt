@@ -253,7 +253,7 @@ class KitkaService : AccessibilityService() {
         col.addView(tv("Your $usedMin minutes in $name are over.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
         col.addView(tv("It is locked until ${fmtTime(until)}.", 18f, Pal.MUTED))
         val c = card(top = 32)
-        c.addView(row(metric("$swipes", "Swipes this session"), metric(if (todayMin >= 0) fmtMin(todayMin) else "-", "Today in $name")))
+        c.addView(row(metric("$swipes", "Videos this session"), metric(if (todayMin >= 0) fmtMin(todayMin) else "-", "Today in $name")))
         col.addView(c)
         col.addView(button("OK", primary = true) { hideOverlay() }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(32) })
         addOverlay(root, null, gate = false)
@@ -308,7 +308,7 @@ class KitkaService : AccessibilityService() {
     private fun updateTimer(leftMs: Long) {
         val t = timerText ?: return
         val secs = (leftMs / 1000).coerceAtLeast(0)
-        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left · $sessionSwipes swipes"
+        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left · $sessionSwipes videos"
         val total = (sessionEnd - sessionStart).coerceAtLeast(1)
         val f = (leftMs.toFloat() / total).coerceIn(0f, 1f)
         val b = timerBar ?: return

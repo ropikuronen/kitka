@@ -37,7 +37,7 @@ object Proof {
         val over = t.totalMin > s.limit
         val stake = Store.stake(ctx)
         val sb = StringBuilder("FinalApp\n")
-        sb.append("Today I scrolled ${fmtMin(t.totalMin)}. Closed $closed of $gates pauses.\n")
+        sb.append("Today I scrolled ${fmtMin(t.totalMin)} and watched ${t.count(Ev.SCROLL)} videos. Closed $closed of $gates pauses.\n")
         sb.append(if (over) "Over my ${s.limit} min limit." else "Under my ${s.limit} min limit.")
         if (stake > 0 && Store.friendPhone(ctx).isNotEmpty()) sb.append(if (over) " I owe you $stake €." else " I don't owe you $stake €.")
         val z = ZoneId.systemDefault()
