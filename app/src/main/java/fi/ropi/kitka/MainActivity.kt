@@ -468,19 +468,22 @@ class MainActivity : Activity() {
             t.addView(tv("Grayscale", 16f))
             t.addView(tv(Grayscale.HOW, 13f, Pal.MUTED))
             addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
-            addView(tv(if (Grayscale.phoneIsGray(this@MainActivity)) "On now" else "Off now", 15f, Pal.INK, android.graphics.Typeface.MONOSPACE).apply { setPadding(dp(12), 0, 0, 0) })
-        })
+                    })
         rc.addView(divider())
         rc.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(14), 0, dp(14))
             val t = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
             t.addView(tv("Daily Proof", 16f))
-            t.addView(tv("Every evening. Sent to: you.", 13f, Pal.MUTED))
+            t.addView(tv("Every evening. Sent to: you. Tap Share in it to send it to a friend.", 13f, Pal.MUTED))
             addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
             addView(tv("21:00", 15f, Pal.INK, android.graphics.Typeface.MONOSPACE))
         })
         col.addView(rc)
+        col.addView(underlineLink("Send a test Daily Proof now") {
+            if (!Perms.notifications(this)) { if (android.os.Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 8); return@underlineLink }
+            Thread { Proof.notify(this) }.start()
+        })
 
         col.addView(small("100% free. Forever. We don't collect any data.").apply { setPadding(0, dp(18), 0, 0) })
         val sup = LinearLayout(this).apply {

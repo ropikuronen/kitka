@@ -56,6 +56,11 @@ object Proof {
         val (title, text) = build(ctx)
         val open = PendingIntent.getActivity(ctx, 22, Intent(ctx, MainActivity::class.java).putExtra("open", "proof"),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, "FinalApp Daily Proof\n$title\n$text")
+        val share = PendingIntent.getActivity(ctx, 23,
+            Intent.createChooser(send, "Share Daily Proof").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = android.app.Notification.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle(title)
@@ -63,6 +68,8 @@ object Proof {
             .setStyle(android.app.Notification.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .setAutoCancel(true)
+            .addAction(android.app.Notification.Action.Builder(
+                android.graphics.drawable.Icon.createWithResource(ctx, R.drawable.ic_stat), "Share", share).build())
             .build()
         try { nm.notify(21, n) } catch (e: SecurityException) { }
     }
