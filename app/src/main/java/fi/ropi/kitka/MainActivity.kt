@@ -27,7 +27,7 @@ class MainActivity : Activity() {
     companion object {
         const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
         const val TODAY = 0; const val HISTORY = 1; const val SCIENCE = 2; const val RULES = 3
-        const val URGE = 4; const val CREATOR = 5
+        const val URGE = 4; const val CREATOR = 5; const val LEAGUE = 6
     }
 
     private lateinit var scroll: ScrollView
@@ -38,6 +38,9 @@ class MainActivity : Activity() {
 
     private var page = TODAY
     private var stats: Stats? = null
+    private var board: League.Board? = null
+    private var leagueBusy = false
+    private var newPot = 5
     private var latestBuild: Int? = null
     private var tourStep = -1
     private val tourTargets = HashMap<String, View>()
@@ -109,6 +112,8 @@ class MainActivity : Activity() {
         Thread {
             val s = Stats.compute(this)
             runOnUiThread { if (!isFinishing) { stats = s; render() } }
+            val b = League.sync(this)
+            runOnUiThread { if (!isFinishing) { board = b; if (page == TODAY || page == LEAGUE) render() } }
         }.start()
         checkUpdate()
     }
@@ -165,6 +170,7 @@ class MainActivity : Activity() {
             RULES -> renderRules()
             URGE -> renderUrge()
             CREATOR -> renderCreator()
+            LEAGUE -> renderLeague()
         }
         renderTour()
     }
@@ -285,6 +291,25 @@ class MainActivity : Activity() {
                 .setNegativeButton("Cancel", null).show()
         })
         col.addView(pc); tourTargets["P"] = pc
+
+        // League
+        val lc = card().apply { isClickable = true; setOnClickListener { endTour(); open(LEAGUE) } }
+        lc.addView(caps("League"))
+        val b = board
+        if (League.code(this).isEmpty()) {
+            lc.addView(tv("Compete with friends. Least scrolling this month wins the pot.", 17f, Pal.INK, Fonts.MED).apply { setPadding(0, dp(6), 0, 0) })
+            lc.addView(tv("Start or join a league", 14f, Pal.SOFT).apply { paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG; setPadding(0, dp(8), 0, 0) })
+        } else if (b == null || b.error != null) {
+            lc.addView(tv(if (b?.error != null) "Could not load: ${b.error}" else "Loading…", 15f, Pal.SOFT).apply { setPadding(0, dp(6), 0, 0) })
+        } else {
+            val month = LocalDate.now().toString().substring(0, 7)
+            val ranked = b.members.filter { it.avg(month) != null }.sortedBy { it.avg(month) }
+            val me = ranked.indexOfFirst { it.uid == League.uid(this) }
+            lc.addView(tv(if (me >= 0) "You're ${ordinal(me + 1)} of ${ranked.size} this month." else "No minutes from you yet this month.", 18f, Pal.INK, Fonts.BOLD).apply { setPadding(0, dp(6), 0, 0) })
+            for ((i, m) in ranked.take(3).withIndex()) lc.addView(kv("${i + 1}. ${m.name}", "${Math.round(m.avg(month) ?: 0f)} min/day"))
+            lc.addView(tv("Open league", 14f, Pal.SOFT).apply { paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG; setPadding(0, dp(6), 0, 0) })
+        }
+        col.addView(lc)
 
         // By app
         val apps = (t.minutes.filterValues { it >= 60_000 }.keys + t.counts.keys).distinct().sortedByDescending { t.minutes[it] ?: 0L }
@@ -537,7 +562,7 @@ class MainActivity : Activity() {
             Thread { Proof.notify(this) }.start()
         })
 
-        col.addView(small("100% free. Forever. We don't collect any data.").apply { setPadding(0, dp(18), 0, 0) })
+        col.addView(small("100% free. Forever. Your minutes are shared only with your league. We never sell, share or use your data for anything else.").apply { setPadding(0, dp(18), 0, 0) })
         val sup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -647,6 +672,117 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         render()
+    }
+
+    // ---------- League ----------
+
+    private fun leagueAction(work: () -> Unit) {
+        if (leagueBusy) return
+        leagueBusy = true; render()
+        Thread {
+            val err = try { work(); null } catch (e: Exception) { e.message ?: "Something went wrong." }
+            val b = if (err == null) League.fetch(this) else board
+            runOnUiThread { leagueBusy = false; board = b; if (err != null) toast(err); render() }
+        }.start()
+    }
+
+    private fun renderLeague() {
+        backTo(TODAY, "Today")
+        col.addView(big("League"))
+        col.addView(tv("Least scrolling this month wins. Counted as average minutes per day, so joining late is fair.", 15f, Pal.MUTED).apply { setPadding(0, dp(4), 0, 0) })
+        if (leagueBusy) col.addView(small("Working…"))
+        val code = League.code(this)
+        if (code.isEmpty()) {
+            val c = card(top = 16)
+            c.addView(tv("Your name in the league", 13f, Pal.MUTED))
+            val nameIn = EditText(this).apply { setText(League.name(this@MainActivity)); setTextColor(Pal.INK); hint = "e.g. Ropi"; setHintTextColor(Pal.DIM); setSingleLine() }
+            c.addView(nameIn)
+            c.addView(label("Start a league"))
+            c.addView(tv("Pot: each loser pays the winner", 13f, Pal.MUTED))
+            val g = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
+            for ((i, e) in listOf(0, 5, 10, 20).withIndex()) {
+                val on = newPot == e
+                g.addView(tv(if (e == 0) "None" else "$e €", 15f, if (on) Pal.BG else Pal.INK, Fonts.MED).apply {
+                    gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(12))
+                    background = if (on) rounded(Pal.INK, dpf(14f)) else rounded(Color.TRANSPARENT, dpf(14f), Color.rgb(51, 51, 51), dp(1))
+                    isClickable = true; setOnClickListener { newPot = e; render() }
+                }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) leftMargin = dp(8) })
+            }
+            c.addView(g)
+            c.addView(button("Create league", primary = true) {
+                val n = nameIn.text.toString().trim()
+                if (n.isEmpty()) { toast("Write your name first."); return@button }
+                leagueAction { League.create(this, n, newPot) }
+            })
+            c.addView(label("Or join with a code"))
+            val codeIn = EditText(this).apply { setTextColor(Pal.INK); hint = "6-letter code"; setHintTextColor(Pal.DIM); setSingleLine(); inputType = android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS }
+            c.addView(codeIn)
+            c.addView(button("Join league", primary = false) {
+                val n = nameIn.text.toString().trim()
+                if (n.isEmpty()) { toast("Write your name first."); return@button }
+                leagueAction { League.join(this, codeIn.text.toString(), n) }
+            })
+            col.addView(c)
+            col.addView(small("Your league sees your name and your minutes per day. Nothing else. We never sell, share or use it for anything else."))
+            return
+        }
+
+        val c = card(top = 16)
+        c.addView(tv("League code", 13f, Pal.MUTED))
+        c.addView(tv(code, 34f, Pal.INK, android.graphics.Typeface.MONOSPACE).apply { letterSpacing = 0.1f })
+        c.addView(button("Invite a friend", primary = true) {
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,
+                "Join my FinalApp league. Least scrolling this month wins.\nCode: $code\nGet FinalApp (Android): $APK_URL")
+            startActivity(Intent.createChooser(send, "Invite"))
+        })
+        col.addView(c)
+
+        val b = board
+        if (b == null) { col.addView(small("Loading…")); return }
+        if (b.error != null) {
+            col.addView(small("Could not load the league: ${b.error}"))
+            col.addView(underlineLink("Try again") { leagueAction { } })
+            return
+        }
+        val month = LocalDate.now().toString().substring(0, 7)
+        val ranked = b.members.filter { it.avg(month) != null }.sortedBy { it.avg(month) }
+        col.addView(label("This month"))
+        val lb = card(top = 0)
+        if (ranked.isEmpty()) lb.addView(body("No minutes yet. They appear after the first sync.", Pal.MUTED))
+        for ((i, m) in ranked.withIndex()) {
+            if (i > 0) lb.addView(divider())
+            val me = m.uid == League.uid(this)
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
+            r.addView(tv("${i + 1}", 18f, if (i == 0) Pal.INK else Pal.MUTED, Fonts.BOLD), LinearLayout.LayoutParams(dp(30), WRAP))
+            val t = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            t.addView(tv(m.name + if (me) " (you)" else "", 16f, Pal.INK, if (me) Fonts.BOLD else Fonts.REG))
+            t.addView(tv("${m.monthDays(month).size} days · ${fmtMin(m.total(month).toLong())} total", 13f, Pal.MUTED))
+            r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
+            r.addView(tv("${Math.round(m.avg(month) ?: 0f)} min/day", 15f, Pal.INK, Fonts.MED))
+            lb.addView(r)
+        }
+        col.addView(lb)
+        if (b.pot > 0 && ranked.size >= 2) {
+            val won = b.pot * (ranked.size - 1)
+            col.addView(small("Pot: ${b.pot} € from each. If the month ended now, ${ranked[0].name} would get $won €. Pay with MobilePay at the end of the month."))
+        } else if (b.pot > 0) col.addView(small("Pot: ${b.pot} € from each. Invite at least one friend."))
+
+        val last = LocalDate.now().minusMonths(1).toString().substring(0, 7)
+        val lastRanked = b.members.filter { it.avg(last) != null }.sortedBy { it.avg(last) }
+        if (lastRanked.size >= 2) {
+            col.addView(label("Last month"))
+            col.addView(card(top = 0).apply {
+                addView(tv("${lastRanked[0].name} won with ${Math.round(lastRanked[0].avg(last) ?: 0f)} min/day.", 16f, Pal.INK, Fonts.MED))
+                if (b.pot > 0) addView(small("Everyone else owes ${lastRanked[0].name} ${b.pot} €."))
+            })
+        }
+        col.addView(small("Your league sees your name and your minutes per day. Nothing else."))
+        col.addView(underlineLink("Leave league") {
+            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setMessage("Leave the league? Your minutes stop updating there.")
+                .setPositiveButton("Leave") { _, _ -> League.leave(this); board = null; render() }
+                .setNegativeButton("Cancel", null).show()
+        })
     }
 
     // ---------- Urge ----------

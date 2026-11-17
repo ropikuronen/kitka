@@ -124,6 +124,7 @@ class ProofReceiver : BroadcastReceiver() {
             try {
                 Proof.notify(ctx)
                 if (!Proof.smsSentToday(ctx)) Proof.sendSms(ctx)
+                try { League.sync(ctx) } catch (e: Exception) { }
             } finally {
                 Proof.schedule(ctx)
                 pending.finish()

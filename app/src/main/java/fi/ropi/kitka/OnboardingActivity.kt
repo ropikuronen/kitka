@@ -156,7 +156,7 @@ class OnboardingActivity : Activity() {
         val g = if (guess >= 0) guessOpts[guess].lowercase(EN) else "nothing"
         if (!Perms.usage(this)) {
             title("Let's check the real number.")
-            sub("Android already records how long each app is open. Allow FinalApp to read it. Nothing leaves your phone.")
+            sub("Android already records how long each app is open. Allow FinalApp to read it.")
             content.addView(button("Allow usage access", primary = false) { Perms.openUsage(this) })
             content.addView(small("Find FinalApp in the list, switch it on, then come back."))
             return
@@ -400,7 +400,7 @@ class OnboardingActivity : Activity() {
 
     private fun permsStep() {
         title("We need two permissions to make this work.")
-        sub("We don't collect any data. Everything stays on your phone.")
+        sub("Your data stays on your phone. If you join a league, only your league sees your minutes. We never sell or share it.")
         val c = card(top = 20, pad = 0).apply { setPadding(dp(16), dp(4), dp(16), dp(4)) }
         fun permRow(name: String, s: String, ok: Boolean, action: () -> Unit) {
             val r = LinearLayout(this).apply {
