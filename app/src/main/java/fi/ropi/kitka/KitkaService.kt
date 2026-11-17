@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter
  * The pause. When a selected app comes to the front:
  *  1. Pause screen: Close works at once, Open anyway unlocks after the pause.
  *  2. Choose a time: 2, 5 or 10 minutes.
- *  3. The app runs in grayscale with a timer on top.
+ *  3. The app runs with a timer on top.
  *  4. Time is up: back to the home screen, the app is locked for a while.
  */
 class KitkaService : AccessibilityService() {
@@ -100,12 +100,12 @@ class KitkaService : AccessibilityService() {
 
         val now = System.currentTimeMillis()
         val inSession = sessionPkg == pkg && sessionEnd > now
-        if (!inSession) { hideTimer(); Grayscale.off(this) }
+        if (!inSession) hideTimer()
 
         if (overlay != null || pkg !in Targets.active(this)) return
         when {
             Store.lockedUntil(this, pkg) > now -> showLocked(pkg)
-            inSession -> { showTimer(); if (Rules.get(this, Rules.GRAY) == 1) Grayscale.on(this) }
+            inSession -> showTimer()
             else -> showGate(pkg)
         }
     }
@@ -226,7 +226,6 @@ class KitkaService : AccessibilityService() {
         sessionEnd = sessionStart + minutes * 60_000L
         sessionSwipes = 0
         currentPkg = pkg
-        if (Rules.get(this, Rules.GRAY) == 1) Grayscale.on(this)
         showTimer()
         handler.removeCallbacks(tick)
         handler.post(tick)
@@ -241,7 +240,6 @@ class KitkaService : AccessibilityService() {
         val swipes = sessionSwipes
         sessionPkg = null
         hideTimer()
-        Grayscale.off(this)
         performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
 
         val name = appLabel(pkg)
@@ -351,13 +349,11 @@ class KitkaService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         Store.markServiceOff(this)
-        Grayscale.off(this)
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         Store.markServiceOff(this)
-        Grayscale.off(this)
         hideOverlay(); hideTimer()
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()

@@ -18,10 +18,9 @@ object Rules {
     val PAUSE = Rule("pause", "Pause", "Close works at once. Open anyway after this.", listOf(5, 10, 15, 20, 30), 10, "s", true)
     val LOCK = Rule("lock", "Lock after time is up", "The app stays closed this long.", listOf(10, 30, 60, 120), 30, "min", true)
     val LIMIT = Rule("limit", "Daily limit", "Shown on Today and in your Daily Proof.", listOf(120, 90, 60, 45, 30), 60, "min", false)
-    val GRAY = Rule("gray", "Grayscale in these apps", "Needs a one-time setup from a computer.", listOf(0, 1), 1, "", true)
     val NIGHT = Rule("night", "Night pause, 23 to 07", "Longer pause at night. Your own test, not from a study.", listOf(0, 30, 60, 120), 60, "s", true)
 
-    val ALL = listOf(PAUSE, LOCK, LIMIT, GRAY, NIGHT)
+    val ALL = listOf(PAUSE, LOCK, LIMIT, NIGHT)
 
     private fun p(ctx: Context): SharedPreferences = ctx.applicationContext.getSharedPreferences("kitka", Context.MODE_PRIVATE)
 
@@ -63,7 +62,6 @@ object Rules {
     }
 
     fun format(r: Rule, v: Int): String = when {
-        r == GRAY -> if (v == 1) "On" else "Off"
         r == NIGHT && v == 0 -> "Off"
         else -> "$v ${r.unit}"
     }

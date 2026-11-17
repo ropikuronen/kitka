@@ -10,10 +10,7 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- Grayscale on/off. Only adb can grant this (see Grayscale.kt). -->
     <uses-permission
-        android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
 
     <!-- Daily Proof notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

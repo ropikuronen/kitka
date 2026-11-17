@@ -366,7 +366,7 @@ class OnboardingActivity : Activity() {
     }
 
     private fun permsStep() {
-        title("We need three permissions to make this work.")
+        title("We need two permissions to make this work.")
         sub("We don't collect any data. Everything stays on your phone.")
         val c = card(top = 20, pad = 0).apply { setPadding(dp(16), dp(4), dp(16), dp(4)) }
         fun permRow(name: String, s: String, ok: Boolean, action: () -> Unit) {
@@ -390,19 +390,14 @@ class OnboardingActivity : Activity() {
         permRow("Notifications", "For your Daily Proof at 21:00.", Perms.notifications(this)) {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 7)
         }
-        permRow("Grayscale", if (Grayscale.phoneIsGray(this)) "On for the whole phone. Done." else "Turn it on for the whole phone. Tap to open settings.", Perms.grayscale(this)) { Perms.openAccessibility(this) }
         content.addView(c)
         content.addView(small("If Android says \"Restricted setting\": open App info, tap ⋮ top right, Allow restricted settings, then try again."))
         content.addView(underlineLink("Open App info") { Perms.openAppInfo(this) })
-        if (!Perms.grayscale(this)) {
-            val g = card(top = 8)
-            g.addView(tv("Grayscale", 15f, Pal.INK, Fonts.MED))
-            g.addView(body("Easiest: turn it on for the whole phone. That's also what the study tested. On Samsung:", Pal.MUTED, 14f).apply { setPadding(0, dp(6), 0, dp(8)) })
-            g.addView(tv(Grayscale.PHONE_PATH, 14f, Pal.INK).apply { setPadding(dp(12), dp(10), dp(12), dp(10)); background = rounded(Pal.BG, dpf(10f)) })
-            g.addView(underlineLink("Open Accessibility") { Perms.openAccessibility(this) })
-            g.addView(small("Want grayscale only inside Instagram and the others? That needs one command from a computer. You find it later in Rules > Grayscale."))
-            content.addView(g)
-        }
+        val g = card(top = 8)
+        g.addView(tv("Optional: grayscale", 15f, Pal.INK, Fonts.MED))
+        g.addView(body(Grayscale.HOW, Pal.MUTED, 14f).apply { setPadding(0, dp(6), 0, 0) })
+        g.addView(tv(if (Grayscale.phoneIsGray(this)) "Grayscale is on right now." else "Grayscale is off right now.", 13f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
+        content.addView(g)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
