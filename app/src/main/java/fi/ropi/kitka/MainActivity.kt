@@ -28,7 +28,7 @@ class MainActivity : Activity() {
         const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
         const val TODAY = 0; const val HISTORY = 1; const val SCIENCE = 2; const val RULES = 3
         const val URGE = 4; const val CREATOR = 5; const val LEAGUE = 6
-        val TAB_PAGES = intArrayOf(0, 6, 1, 2, 3)
+        val TAB_PAGES = intArrayOf(0, 6, 1, 3)
     }
 
     private lateinit var scroll: ScrollView
@@ -128,7 +128,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, dp(10))
         }
         val items = listOf(R.drawable.tab_today to "Today", R.drawable.tab_league to "League", R.drawable.tab_history to "History",
-            R.drawable.tab_science to "Science", R.drawable.tab_rules to "Rules")
+            R.drawable.tab_rules to "Rules")
         tabViews.clear()
         for ((i, item) in items.withIndex()) {
             val cell = LinearLayout(this).apply {
@@ -167,8 +167,7 @@ class MainActivity : Activity() {
         when (page) {
             TODAY -> if (s != null) renderToday(s) else header()
             HISTORY -> if (s != null) renderHistory(s) else header()
-            SCIENCE -> if (s != null) renderScience(s) else header()
-            RULES -> renderRules()
+            SCIENCE, RULES -> { renderRules(); if (s != null) renderScience(s, inRules = true) }
             URGE -> renderUrge()
             CREATOR -> renderCreator()
             LEAGUE -> renderLeague()
@@ -433,9 +432,9 @@ class MainActivity : Activity() {
 
     // ---------- Science ----------
 
-    private fun renderScience(s: Stats) {
-        header()
-        pageTitle("Science")
+    private fun renderScience(s: Stats, inRules: Boolean = false) {
+        if (inRules) col.addView(big("The science").apply { setPadding(0, dp(36), 0, 0) })
+        else { header(); pageTitle("Science") }
         val e = card(top = 16)
         e.addView(tv("Your 7-day test", 13f, Pal.MUTED, Fonts.MED))
         val b = s.beforeAvg; val a = s.afterAvg
@@ -881,8 +880,7 @@ class MainActivity : Activity() {
         "P" to "Your Daily Proof. This exact message goes out at 21:00.",
         "tab6" to "League: compete with friends. Least scrolling this month wins the pot.",
         "tab1" to "History: every day, hour and app. Nothing hidden.",
-        "tab2" to "Science: your 7-day test, and the study behind every rule.",
-        "tab3" to "Rules: stricter right away, easier only after 24 hours.",
+        "tab3" to "Rules: stricter right away, easier only after 24 hours. The study behind every rule is here too.",
     )
 
     private fun endTour() {
