@@ -85,7 +85,7 @@ class KitkaService : AccessibilityService() {
         val pkg = e.packageName?.toString() ?: return
         when (e.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(pkg)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScroll(pkg)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScroll(pkg, e)
         }
     }
 
@@ -110,15 +110,37 @@ class KitkaService : AccessibilityService() {
         }
     }
 
-    private fun onScroll(pkg: String) {
+    private var lastIndex = -1
+    private var lastIndexClass = ""
+    private var accY = 0
+
+    /**
+     * Counts one video only when the feed really moves to the next item:
+     * the list's item index changes, or the feed moves vertically by at least
+     * about a third of the screen. Taps, likes, comments and sideways movement
+     * also fire scroll events, but move neither, so they are not counted.
+     */
+    private fun onScroll(pkg: String, e: AccessibilityEvent) {
         if (overlay != null || pkg != sessionPkg) return
-        val now = System.currentTimeMillis()
-        val gap = now - lastScrollAt
-        lastScrollAt = now
-        if (gap > SCROLL_GAP_MS) {
-            Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++
-            updateTimer(sessionEnd - System.currentTimeMillis())
+        val cls = e.className?.toString() ?: ""
+        var moved = false
+        val idx = e.fromIndex
+        if (idx >= 0) {
+            if (cls == lastIndexClass && lastIndex >= 0 && idx != lastIndex) moved = true
+            lastIndex = idx; lastIndexClass = cls
         }
+        val dy = e.scrollDeltaY
+        if (dy != -1 && dy != 0) {
+            accY += Math.abs(dy)
+            if (accY >= resources.displayMetrics.heightPixels / 3) moved = true
+        }
+        if (!moved) return
+        accY = 0
+        val now = System.currentTimeMillis()
+        if (now - lastScrollAt < SCROLL_GAP_MS) return
+        lastScrollAt = now
+        Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++
+        updateTimer(sessionEnd - System.currentTimeMillis())
     }
 
     // ---------- screens ----------
@@ -224,7 +246,7 @@ class KitkaService : AccessibilityService() {
     private fun startSession(pkg: String, minutes: Int) {
         Db.get(this).log(pkg, Ev.CONTINUE)
         hideOverlay()
-        sessionPkg = pkg
+        sessionPkg = pkg; lastIndex = -1; lastIndexClass = ""; accY = 0
         sessionStart = System.currentTimeMillis()
         sessionEnd = sessionStart + minutes * 60_000L
         sessionSwipes = 0
