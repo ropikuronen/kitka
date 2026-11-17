@@ -20,7 +20,7 @@ object Perms {
     fun notifications(ctx: Context): Boolean =
         Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED
 
-    fun grayscale(ctx: Context) = Grayscale.canControl(ctx)
+    fun grayscale(ctx: Context) = Grayscale.ready(ctx)
 
     fun openAccessibility(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     fun openUsage(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))

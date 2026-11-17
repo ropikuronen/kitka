@@ -456,7 +456,7 @@ class MainActivity : Activity() {
             t.addView(tv(r.name, 16f))
             t.addView(tv(r.sub, 13f, Pal.MUTED))
             if (pend != null) t.addView(tv("Changes to ${Rules.format(r, pend.first)} in ${fmtLeft(pend.second)}. Tap to cancel.", 13f, Pal.SOFT))
-            if (r == Rules.GRAY && !Perms.grayscale(this)) t.addView(tv("Setup needed. Tap for the command.", 13f, Pal.SOFT))
+            if (r == Rules.GRAY) t.addView(tv(when { Grayscale.phoneIsGray(this) -> "On for the whole phone. Nothing else needed."; Grayscale.canControl(this) -> "Switches on only inside these apps."; else -> "Not set up. Tap to see how." }, 13f, Pal.SOFT))
             rowV.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
             rowV.addView(tv(Rules.format(r, cur), 15f, Pal.INK, android.graphics.Typeface.MONOSPACE).apply { setPadding(dp(12), 0, 0, 0) })
             rc.addView(rowV)
@@ -535,11 +535,12 @@ class MainActivity : Activity() {
     private fun editRule(r: Rules.Rule) {
         val pend = Rules.pending(this, r)
         if (pend != null) { Rules.cancelPending(this, r); render(); return }
-        if (r == Rules.GRAY && !Perms.grayscale(this)) {
+        if (r == Rules.GRAY && !Grayscale.ready(this)) {
             AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Grayscale setup")
-                .setMessage("Android only lets a computer give this permission. Turn on USB debugging, plug in the phone and run:\n\n${Grayscale.ADB}")
-                .setPositiveButton("Copy command") { _, _ -> Perms.copy(this, Grayscale.ADB) }
+                .setTitle("Grayscale")
+                .setMessage("Easiest: turn it on for the whole phone. That's what the study tested.\n\n${Grayscale.PHONE_PATH}\n\nOnly inside the selected apps: turn on USB debugging, plug the phone into a computer and run:\n\n${Grayscale.ADB}")
+                .setPositiveButton("Open settings") { _, _ -> Perms.openAccessibility(this) }
+                .setNeutralButton("Copy command") { _, _ -> Perms.copy(this, Grayscale.ADB) }
                 .setNegativeButton("Close", null)
                 .show()
             return

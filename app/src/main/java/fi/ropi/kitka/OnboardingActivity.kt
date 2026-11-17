@@ -390,19 +390,17 @@ class OnboardingActivity : Activity() {
         permRow("Notifications", "For your Daily Proof at 21:00.", Perms.notifications(this)) {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 7)
         }
-        permRow("Grayscale", "One command from a computer. Takes 2 minutes.", Perms.grayscale(this)) {}
+        permRow("Grayscale", if (Grayscale.phoneIsGray(this)) "On for the whole phone. Done." else "Turn it on for the whole phone. Tap to open settings.", Perms.grayscale(this)) { Perms.openAccessibility(this) }
         content.addView(c)
         content.addView(small("If Android says \"Restricted setting\": open App info, tap ⋮ top right, Allow restricted settings, then try again."))
         content.addView(underlineLink("Open App info") { Perms.openAppInfo(this) })
         if (!Perms.grayscale(this)) {
             val g = card(top = 8)
-            g.addView(tv("Grayscale setup", 15f, Pal.INK, Fonts.MED))
-            g.addView(body("On a computer with adb, plug in your phone (USB debugging on) and run:", Pal.MUTED, 14f).apply { setPadding(0, dp(6), 0, dp(8)) })
-            g.addView(tv(Grayscale.ADB, 13f, Pal.INK, android.graphics.Typeface.MONOSPACE).apply {
-                setPadding(dp(12), dp(10), dp(12), dp(10)); background = rounded(Pal.BG, dpf(10f))
-            })
-            g.addView(underlineLink("Copy command") { Perms.copy(this, Grayscale.ADB) })
-            g.addView(small("You can skip this now and do it later from Rules."))
+            g.addView(tv("Grayscale", 15f, Pal.INK, Fonts.MED))
+            g.addView(body("Easiest: turn it on for the whole phone. That's also what the study tested. On Samsung:", Pal.MUTED, 14f).apply { setPadding(0, dp(6), 0, dp(8)) })
+            g.addView(tv(Grayscale.PHONE_PATH, 14f, Pal.INK).apply { setPadding(dp(12), dp(10), dp(12), dp(10)); background = rounded(Pal.BG, dpf(10f)) })
+            g.addView(underlineLink("Open Accessibility") { Perms.openAccessibility(this) })
+            g.addView(small("Want grayscale only inside Instagram and the others? That needs one command from a computer. You find it later in Rules > Grayscale."))
             content.addView(g)
         }
     }
