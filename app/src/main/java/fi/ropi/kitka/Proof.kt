@@ -36,7 +36,7 @@ object Proof {
         val closed = t.count(Ev.CLOSE)
         val over = t.totalMin > s.limit
         val stake = Store.stake(ctx)
-        val sb = StringBuilder("FinalApp\n")
+        val sb = StringBuilder()
         sb.append("Today I scrolled ${fmtMin(t.totalMin)} and watched ${t.count(Ev.SCROLL)} videos. Closed $closed of $gates pauses.\n")
         sb.append(if (over) "Over my ${s.limit} min limit." else "Under my ${s.limit} min limit.")
         if (stake > 0 && Store.friendPhone(ctx).isNotEmpty()) sb.append(if (over) " I owe you $stake €." else " I don't owe you $stake €.")
@@ -46,6 +46,7 @@ object Proof {
         for ((a, b) in Store.gaps(ctx)) if (b > startToday) {
             sb.append("\nFinalApp was switched off from ${Instant.ofEpochMilli(maxOf(a, startToday)).atZone(z).format(f)} to ${Instant.ofEpochMilli(b).atZone(z).format(f)}.")
         }
+        sb.append("\n\nSent to you from FinalApp")
         return sb.toString()
     }
 

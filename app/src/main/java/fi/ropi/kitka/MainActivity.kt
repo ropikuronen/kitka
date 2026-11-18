@@ -251,7 +251,7 @@ class MainActivity : Activity() {
             r.addView(Hourglass(this), LinearLayout.LayoutParams(dp(58), dp(88)))
             val ht = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), 0, 0, 0) }
             ht.addView(big(String.format(EN, "%.1f years", s.yearsBy80), 36f))
-            ht.addView(tv("of waking life by age 80, at your current pace.", 14f, Pal.SOFT).apply { setPadding(0, dp(4), 0, 0) })
+            ht.addView(tv("of waking life over the next 50 years, at your current pace.", 14f, Pal.SOFT).apply { setPadding(0, dp(4), 0, 0) })
             r.addView(ht, LinearLayout.LayoutParams(0, WRAP, 1f))
             h.addView(r)
             col.addView(h); tourTargets["B"] = h

@@ -19,7 +19,7 @@ import java.time.LocalDate
 
 class OnboardingActivity : Activity() {
 
-    private val last = 14
+    private val last = 13
     private var step = 0
     private var guess = -1
     private var tried = -1
@@ -109,13 +109,13 @@ class OnboardingActivity : Activity() {
         }
         backBtn.visibility = if (step == 0) View.INVISIBLE else View.VISIBLE
         next.text = when (step) {
-            0 -> "Start"; 1 -> "Show me"; 12 -> "I'm in"; last -> "Open FinalApp"; else -> "Continue"
+            0 -> "Start"; 1 -> "Show me"; 11 -> "I'm in"; last -> "Open FinalApp"; else -> "Continue"
         }
         content.removeAllViews()
         when (step) {
-            0 -> welcome(); 1 -> guessStep(); 2 -> reveal(); 3 -> ageStep(); 4 -> pace()
-            5 -> whenStep(); 6 -> forStep(); 7 -> triedStep(); 8 -> notNormal(); 9 -> appsStep()
-            10 -> limitStep(); 11 -> proofStep(); 12 -> promise(); 13 -> permsStep(); 14 -> allSet()
+            0 -> welcome(); 1 -> guessStep(); 2 -> reveal(); 3 -> pace()
+            4 -> whenStep(); 5 -> forStep(); 6 -> triedStep(); 7 -> notNormal(); 8 -> appsStep()
+            9 -> limitStep(); 10 -> proofStep(); 11 -> promise(); 12 -> permsStep(); 13 -> allSet()
         }
         scroll.scrollTo(0, 0)
         if (animate) {
@@ -208,7 +208,7 @@ class OnboardingActivity : Activity() {
             content.addView(body("Not enough data yet. FinalApp will show your pace after a few days.", Pal.SOFT, 18f).apply { setPadding(0, dp(24), 0, 0) })
             return
         }
-        content.addView(tv("If nothing changes, by age 80 you'll have spent", 17f, Pal.MUTED).apply { setPadding(0, dp(26), 0, 0) })
+        content.addView(tv("If nothing changes, over the next 50 years you'll spend", 17f, Pal.MUTED).apply { setPadding(0, dp(26), 0, 0) })
         content.addView(big(String.format(EN, "%.1f years", s.yearsBy80), 64f).apply { setPadding(0, dp(8), 0, 0) })
         content.addView(tv("of your waking life scrolling.", 20f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
         content.addView(small(String.format(EN, "That's %.0f days every year at your pace of %d min a day. Waking day = 16 h.", s.wakingDaysYear, Math.round(s.avg7))).apply { setPadding(0, dp(18), 0, 0) })
