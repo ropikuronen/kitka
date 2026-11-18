@@ -28,7 +28,7 @@ class MainActivity : Activity() {
         const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
         const val TODAY = 0; const val HISTORY = 1; const val SCIENCE = 2; const val RULES = 3
         const val URGE = 4; const val CREATOR = 5; const val LEAGUE = 6
-        val TAB_PAGES = intArrayOf(0, 6, 1, 3)
+        val TAB_PAGES = intArrayOf(0, 1, 2, 3)
     }
 
     private lateinit var scroll: ScrollView
@@ -131,8 +131,8 @@ class MainActivity : Activity() {
             setBackgroundColor(Pal.BG)
             setPadding(0, dp(8), 0, dp(10))
         }
-        val items = listOf(R.drawable.tab_today to "Today", R.drawable.tab_league to "League", R.drawable.tab_history to "History",
-            R.drawable.tab_rules to "Rules")
+        val items = listOf(R.drawable.tab_today to "Today", R.drawable.tab_history to "History",
+            R.drawable.tab_science to "Science", R.drawable.tab_rules to "Rules")
         tabViews.clear()
         for ((i, item) in items.withIndex()) {
             val cell = LinearLayout(this).apply {
@@ -171,7 +171,8 @@ class MainActivity : Activity() {
         when (page) {
             TODAY -> if (s != null) renderToday(s) else header()
             HISTORY -> if (s != null) renderHistory(s) else header()
-            SCIENCE, RULES -> { renderRules(); if (s != null) renderScience(s, inRules = true) }
+            SCIENCE -> if (s != null) renderScience(s) else header()
+            RULES -> renderRules()
             URGE -> renderUrge()
             CREATOR -> renderCreator()
             LEAGUE -> renderLeague()
@@ -298,6 +299,16 @@ class MainActivity : Activity() {
                 .setNegativeButton("Cancel", null).show()
         })
         col.addView(pc); tourTargets["P"] = pc
+
+        val lc = card().apply { isClickable = true; setOnClickListener { endTour(); open(LEAGUE) } }
+        val lr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val lt = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        lt.addView(tv("League", 17f, Pal.INK, Fonts.BOLD))
+        lt.addView(tv(if (League.code(this).isEmpty()) "Compete with friends. Least scrolling wins." else "See this month's leaderboard.", 14f, Pal.MUTED).apply { setPadding(0, dp(4), 0, 0) })
+        lr.addView(lt, LinearLayout.LayoutParams(0, WRAP, 1f))
+        lr.addView(tv("›", 26f, Pal.SOFT))
+        lc.addView(lr)
+        col.addView(lc)
 
 
         // By app
@@ -696,6 +707,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderLeague() {
+        backTo(TODAY, "Today")
         col.addView(big("League"))
         col.addView(tv("Least scrolling this month wins. Counted as average minutes per day, so joining late is fair.", 15f, Pal.MUTED).apply { setPadding(0, dp(4), 0, 0) })
         if (leagueBusy) col.addView(small("Working…"))
@@ -883,9 +895,9 @@ class MainActivity : Activity() {
         "B" to "Your pace. The only way to make this number smaller is to scroll less. Sorry, not sorry.",
         "W" to "Time you won back. Counted per week, so one bad day doesn't reset it.",
         "P" to "Your Daily Proof. This exact message goes out at 21:00.",
-        "tab6" to "League: compete with friends. Least scrolling this month wins the pot.",
         "tab1" to "History: every day, hour and app. Nothing hidden.",
-        "tab3" to "Rules: stricter right away, easier only after 24 hours. The study behind every rule is here too.",
+        "tab2" to "Science: your 7-day test, and the study behind every rule.",
+        "tab3" to "Rules: stricter right away, easier only after 24 hours.",
     )
 
     private fun endTour() {
