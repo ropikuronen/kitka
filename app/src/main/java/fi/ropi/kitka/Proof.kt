@@ -112,6 +112,8 @@ object Proof {
 class ProofReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) { Proof.schedule(ctx); return }
+        // Other apps can reach an exported receiver; ignore anything that is not our own 21:00 alarm.
+        if (intent.action != null && intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pending = goAsync()
         Thread {
             try {

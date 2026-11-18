@@ -70,7 +70,7 @@ object League {
             .put("pot", JSONObject().put("integerValue", pot.toString()))
             .put("created", JSONObject().put("stringValue", LocalDate.now().toString())))
         http("POST", "$DOCS/groups?documentId=$code", t, doc.toString())
-        p(ctx).edit().putString("league_code", code).putString("league_name", myName).apply()
+        p(ctx).edit().putString("league_code", code).putString("league_name", myName.take(24)).apply()
         push(ctx)
         return code
     }
@@ -79,8 +79,9 @@ object League {
     fun join(ctx: Context, code: String, myName: String) {
         val t = token(ctx)
         val c = code.trim().uppercase()
+        if (!Regex("[A-Z0-9]{6}").matches(c)) throw RuntimeException("A code is 6 letters or numbers.")
         http("GET", "$DOCS/groups/$c", t, null)
-        p(ctx).edit().putString("league_code", c).putString("league_name", myName).apply()
+        p(ctx).edit().putString("league_code", c).putString("league_name", myName.take(24)).apply()
         push(ctx)
     }
 
