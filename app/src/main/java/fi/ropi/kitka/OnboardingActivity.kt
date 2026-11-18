@@ -354,11 +354,11 @@ class OnboardingActivity : Activity() {
 
     private fun proofStep() {
         title("Daily Proof")
-        sub("Every evening at 21:00 FinalApp sends a short report. Tracking works better when someone else sees it.")
+        sub("Every evening at 21:00 FinalApp gives you a short report. Tracking works better when someone else sees it.")
         content.addView(space(12))
         val hasFriend = proofFriend || Store.friendPhone(this).isNotEmpty()
         content.addView(option("Only me, as a notification", !hasFriend) { proofFriend = false; Store.setProof(this, "", Store.stake(this), force = true); render(false) })
-        content.addView(option("Me and a friend, by text message", hasFriend) { proofFriend = true; render(false) })
+        content.addView(option("Me and a friend", hasFriend) { proofFriend = true; render(false) })
         if (!hasFriend) return
         val phone = EditText(this).apply {
             hint = "Friend's number, e.g. +358 40 123 4567"; setHintTextColor(Pal.DIM); setTextColor(Pal.INK); textSize = 16f
@@ -386,8 +386,7 @@ class OnboardingActivity : Activity() {
             }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { if (i > 0) leftMargin = dp(8) })
         }
         content.addView(g)
-        if (!Proof.canSms(this)) content.addView(button("Allow text messages", primary = false) { requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9) })
-        else content.addView(small("Text messages allowed."))
+        content.addView(small("At 21:00 you get a notification. One tap opens the message to your friend, ready to send."))
         content.addView(small("Example: \"Today I scrolled 23 min. Closed 6 of 8 pauses. Under my 90 min limit. I don't owe you 20 €.\""))
     }
 

@@ -279,8 +279,6 @@ class MainActivity : Activity() {
         val phone = Store.friendPhone(this)
         pc.addView(kv("Sent to", if (phone.isEmpty()) "You only" else "You + $phone"))
         if (phone.isNotEmpty()) pc.addView(kv("Stake", "${Store.stake(this)} €"))
-        if (phone.isNotEmpty()) pc.addView(kv("Text messages", if (Proof.canSms(this)) "Allowed" else "Not allowed"))
-        if (phone.isNotEmpty() && Proof.smsSentToday(this)) pc.addView(kv("Today", "Sent"))
         Store.proofPending(this)?.let { pend ->
             val parts = ArrayList<String>()
             if (pend.first != phone) parts.add(if (pend.first.isEmpty()) "remove friend" else "friend → ${pend.first}")
@@ -288,16 +286,11 @@ class MainActivity : Activity() {
             if (parts.isNotEmpty()) pc.addView(small("Waiting change: ${parts.joinToString(", ")}, in ${fmtLeft(pend.third)}."))
             pc.addView(underlineLink("Cancel the change") { Store.cancelProofPending(this); render() })
         }
-        if (phone.isNotEmpty() && !Proof.canSms(this)) pc.addView(button("Allow text messages", primary = true) {
-            requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9)
+        pc.addView(small(if (phone.isEmpty()) "At 21:00 you get it as a notification." else "At 21:00 you get a notification. Tap it and the message opens to your friend, ready. You press Send."))
+        pc.addView(button(if (phone.isEmpty()) "Share it now" else "Send it to them now", primary = phone.isNotEmpty()) {
+            try { startActivity(Proof.sendIntent(this, Proof.message(this, s))) } catch (e: Exception) { toast("No app to send it with.") }
         })
         pc.addView(underlineLink(if (phone.isEmpty()) "Add one friend" else "Edit friend or stake") { editProof() })
-        if (phone.isNotEmpty() && Proof.canSms(this) && !Proof.smsSentToday(this)) pc.addView(underlineLink("Send a test text to them now (once)") {
-            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setMessage("Send today's message to $phone now? Tonight's 21:00 message is then skipped, so they get only one.")
-                .setPositiveButton("Send") { _, _ -> Thread { val ok = Proof.sendSms(this); runOnUiThread { toast(if (ok) "Sent." else "Could not send."); render() } }.start() }
-                .setNegativeButton("Cancel", null).show()
-        })
         col.addView(pc); tourTargets["P"] = pc
 
         val lc = card().apply { isClickable = true; setOnClickListener { endTour(); open(LEAGUE) } }
@@ -654,14 +647,13 @@ class MainActivity : Activity() {
         box.addView(stake)
         box.addView(small("Adding a friend or raising the stake works now. Removing or lowering waits 24 hours."))
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Daily Proof by text message")
+            .setTitle("Daily Proof friend")
             .setView(box)
             .setPositiveButton("Save") { _, _ ->
                 val p = phone.text.toString().trim()
                 val st = stake.text.toString().toIntOrNull()?.coerceIn(0, 1000) ?: 0
                 val note = Store.setProof(this, p, st)
                 toast(note)
-                if (p.isNotEmpty() && !Proof.canSms(this)) requestPermissions(arrayOf(android.Manifest.permission.SEND_SMS), 9)
                 render()
             }
             .setNegativeButton("Cancel", null)

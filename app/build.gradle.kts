@@ -25,11 +25,23 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Store version. The keystore is encrypted; its password lives only in the GitHub secret RELEASE_PASSWORD.
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = System.getenv("RELEASE_PASSWORD") ?: ""
+            keyAlias = "finalapp"
+            keyPassword = System.getenv("RELEASE_PASSWORD") ?: ""
+            storeType = "PKCS12"
+        }
     }
 
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
+        }
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

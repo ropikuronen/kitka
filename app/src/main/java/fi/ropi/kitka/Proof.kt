@@ -50,24 +50,16 @@ object Proof {
         return sb.toString()
     }
 
-    fun canSms(ctx: Context): Boolean =
-        ctx.checkSelfPermission(android.Manifest.permission.SEND_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-    /** Sends the message to the friend. Returns false if not possible. */
-    fun sendSms(ctx: Context, text: String = message(ctx)): Boolean {
+    /** Opens the message: straight to the friend's chat in the SMS app if there is a friend, otherwise the share sheet. No permission needed; you tap Send. */
+    fun sendIntent(ctx: Context, text: String = message(ctx)): Intent {
         val phone = Store.friendPhone(ctx)
-        if (phone.isEmpty() || !canSms(ctx)) return false
-        return try {
-            @Suppress("DEPRECATION")
-            val sms = if (android.os.Build.VERSION.SDK_INT >= 31) ctx.getSystemService(android.telephony.SmsManager::class.java) else android.telephony.SmsManager.getDefault()
-            sms.sendMultipartTextMessage(phone, null, sms.divideMessage(text), null, null)
-            ctx.getSharedPreferences("kitka", Context.MODE_PRIVATE).edit().putString("last_sms_day", LocalDate.now().toString()).apply()
-            true
-        } catch (e: Exception) { false }
+        return if (phone.isNotEmpty())
+            Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:" + phone)).putExtra("sms_body", text).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        else Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share Daily Proof").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
-    fun smsSentToday(ctx: Context): Boolean =
-        ctx.getSharedPreferences("kitka", Context.MODE_PRIVATE).getString("last_sms_day", "") == LocalDate.now().toString()
+    fun shareIntent(ctx: Context, text: String = message(ctx)): Intent =
+        Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share Daily Proof").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** Title and lines of today's proof. */
     fun build(ctx: Context): Pair<String, String> {
@@ -94,24 +86,24 @@ object Proof {
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Daily Proof", NotificationManager.IMPORTANCE_DEFAULT))
         val msg = message(ctx)
-        val title = msg.lines().getOrElse(1) { "Daily Proof" }
-        val text = msg.lines().drop(2).joinToString(" ")
+        val title = "Daily Proof"
+        val text = msg.substringBefore("\n\nSent to you").replace("\n", " ")
         val open = PendingIntent.getActivity(ctx, 22, Intent(ctx, MainActivity::class.java).putExtra("open", "proof"),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-            .putExtra(Intent.EXTRA_TEXT, msg)
-        val share = PendingIntent.getActivity(ctx, 23,
-            Intent.createChooser(send, "Share Daily Proof").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val hasFriend = Store.friendPhone(ctx).isNotEmpty()
+        val share = PendingIntent.getActivity(ctx, 23, shareIntent(ctx, msg), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val toFriend = PendingIntent.getActivity(ctx, 24, sendIntent(ctx, msg), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = android.app.Notification.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(android.app.Notification.BigTextStyle().bigText(text))
-            .setContentIntent(open)
+            .setContentIntent(if (hasFriend) toFriend else open)
             .setAutoCancel(true)
             .addAction(android.app.Notification.Action.Builder(
                 android.graphics.drawable.Icon.createWithResource(ctx, R.drawable.ic_stat), "Share", share).build())
+            .apply { if (hasFriend) addAction(android.app.Notification.Action.Builder(
+                android.graphics.drawable.Icon.createWithResource(ctx, R.drawable.ic_stat), "Send to friend", toFriend).build()) }
             .build()
         try { nm.notify(21, n) } catch (e: SecurityException) { }
     }
@@ -124,7 +116,6 @@ class ProofReceiver : BroadcastReceiver() {
         Thread {
             try {
                 Proof.notify(ctx)
-                if (!Proof.smsSentToday(ctx)) Proof.sendSms(ctx)
                 try { League.sync(ctx) } catch (e: Exception) { }
             } finally {
                 Proof.schedule(ctx)
