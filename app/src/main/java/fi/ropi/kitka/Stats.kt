@@ -32,7 +32,7 @@ class Stats(
     val today: Day get() = days[0]
     val yearHours: Float get() = avg7 * 365f / 60f
     val wakingDaysYear: Float get() = avg7 * 365f / 960f
-    val yearsBy80: Float get() = 50 * yearHours / (16f * 365f)
+    val yearsBy80: Float get() = 80 * yearHours / (16f * 365f)
 
     companion object {
         fun compute(ctx: Context): Stats {

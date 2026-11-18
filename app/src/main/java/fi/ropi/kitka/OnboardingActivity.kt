@@ -208,7 +208,7 @@ class OnboardingActivity : Activity() {
             content.addView(body("Not enough data yet. FinalApp will show your pace after a few days.", Pal.SOFT, 18f).apply { setPadding(0, dp(24), 0, 0) })
             return
         }
-        content.addView(tv("If nothing changes, over the next 50 years you'll spend", 17f, Pal.MUTED).apply { setPadding(0, dp(26), 0, 0) })
+        content.addView(tv("If nothing changes, over 80 years you'll spend", 17f, Pal.MUTED).apply { setPadding(0, dp(26), 0, 0) })
         content.addView(big(String.format(EN, "%.1f years", s.yearsBy80), 64f).apply { setPadding(0, dp(8), 0, 0) })
         content.addView(tv("of your waking life scrolling.", 20f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
         content.addView(small(String.format(EN, "That's %.0f days every year at your pace of %d min a day. Waking day = 16 h.", s.wakingDaysYear, Math.round(s.avg7))).apply { setPadding(0, dp(18), 0, 0) })
