@@ -18,7 +18,7 @@ object Backup {
     private const val NAME = "finalapp-backup.json"
     private const val DIR = "Documents/FinalApp/"
     // Short-lived sign-in token is not saved; it is refreshed after restore.
-    private val SKIP = setOf("fb_token", "fb_exp", "last_backup_day")
+    private val SKIP = setOf("fb_token", "fb_exp", "last_backup_day", "history_sync_day")
 
     fun lastDay(ctx: Context): String =
         ctx.getSharedPreferences("kitka", Context.MODE_PRIVATE).getString("last_backup_day", "") ?: ""
@@ -66,8 +66,11 @@ object Backup {
         Db.get(ctx).readableDatabase.rawQuery("SELECT ts, day, pkg, type FROM events", null).use { c ->
             while (c.moveToNext()) events.put(JSONArray().put(c.getLong(0)).put(c.getString(1)).put(c.getString(2)).put(c.getString(3)))
         }
-        return JSONObject().put("app", "FinalApp").put("version", 1)
+        val dayApp = JSONArray(); for (r in Db.get(ctx).table("day_app")) dayApp.put(JSONArray(r))
+        val dayHour = JSONArray(); for (r in Db.get(ctx).table("day_hour")) dayHour.put(JSONArray(r))
+        return JSONObject().put("app", "FinalApp").put("version", 2)
             .put("saved", LocalDate.now().toString()).put("prefs", prefs).put("events", events)
+            .put("day_app", dayApp).put("day_hour", dayHour)
     }
 
     /** Reads a backup the user picked. Returns the date it was saved. Throws if it is not a FinalApp backup. */
@@ -101,6 +104,12 @@ object Backup {
                     put("ts", a.getLong(0)); put("day", a.getString(1)); put("pkg", a.getString(2)); put("type", a.getString(3))
                 })
             }
+            val da = j.optJSONArray("day_app")
+            if (da != null) { db.delete("day_app", null, null); for (i in 0 until da.length()) { val a = da.getJSONArray(i)
+                db.insert("day_app", null, ContentValues().apply { put("day", a.getString(0)); put("pkg", a.getString(1)); put("ms", a.getLong(2)) }) } }
+            val dh = j.optJSONArray("day_hour")
+            if (dh != null) { db.delete("day_hour", null, null); for (i in 0 until dh.length()) { val a = dh.getJSONArray(i)
+                db.insert("day_hour", null, ContentValues().apply { put("day", a.getString(0)); put("hour", a.getLong(1)); put("ms", a.getLong(2)) }) } }
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
         return j.optString("saved")

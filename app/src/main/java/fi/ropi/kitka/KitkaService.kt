@@ -307,36 +307,60 @@ class KitkaService : AccessibilityService() {
         val pill = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(16), dp(8), dp(16), dp(9))
-            background = rounded(Pal.BG, dpf(22f))
-            minimumWidth = dp(140)
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            background = rounded(Color.argb(200, 0, 0, 0), dpf(10f))
         }
-        val t = tv("", 15f, Pal.INK, Fonts.MED).apply { gravity = Gravity.CENTER }
-        val b = bar(1f, 3)
+        val t = tv("", 11f, Pal.INK, Fonts.MED).apply { gravity = Gravity.CENTER }
         pill.addView(t)
-        pill.addView(b)
-        (b.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = dp(40) }
+        ).apply {
+            // Sits in the status bar, over the phone's clock, so it never covers the app itself.
+            gravity = Gravity.TOP or Gravity.START; x = dp(10)
+            y = ((statusBarPx() - dp(18)) / 2).coerceAtLeast(0)
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
         try { manager.addView(pill, lp) } catch (e: Exception) { return }
-        timerView = pill; timerText = t; timerBar = b
+        timerView = pill; timerText = t; timerBar = null
         updateTimer(sessionEnd - System.currentTimeMillis())
     }
 
     private fun updateTimer(leftMs: Long) {
         val t = timerText ?: return
         val secs = (leftMs / 1000).coerceAtLeast(0)
-        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left · $sessionSwipes videos"
+        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} · $sessionSwipes videos"
         val total = (sessionEnd - sessionStart).coerceAtLeast(1)
         val f = (leftMs.toFloat() / total).coerceIn(0f, 1f)
         val b = timerBar ?: return
         (b.getChildAt(0).layoutParams as LinearLayout.LayoutParams).weight = f.coerceAtLeast(0.001f)
         (b.getChildAt(1).layoutParams as LinearLayout.LayoutParams).weight = (1f - f).coerceAtLeast(0.001f)
         b.requestLayout()
+    }
+
+    private fun statusBarPx(): Int {
+        val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (id > 0) resources.getDimensionPixelSize(id) else dp(24)
+    }
+
+    private var focus: android.media.AudioFocusRequest? = null
+
+    /** Pauses the video playing behind the pause screen. */
+    private fun muteBehind() {
+        try {
+            val am = getSystemService(android.media.AudioManager::class.java) ?: return
+            val r = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).build())
+                .setOnAudioFocusChangeListener { }.build()
+            am.requestAudioFocus(r); focus = r
+        } catch (e: Exception) { }
+    }
+
+    private fun unmute() {
+        try { focus?.let { getSystemService(android.media.AudioManager::class.java)?.abandonAudioFocusRequest(it) } } catch (e: Exception) { }
+        focus = null
     }
 
     private fun hideTimer() {
@@ -351,12 +375,19 @@ class KitkaService : AccessibilityService() {
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.OPAQUE
-        )
+        ).apply {
+            // Cover the whole screen, also behind the status bar and the camera hole.
+            layoutInDisplayCutoutMode = if (android.os.Build.VERSION.SDK_INT >= 30)
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        root.setPadding(root.paddingLeft, root.paddingTop + statusBarPx(), root.paddingRight, root.paddingBottom)
         return try {
             manager.addView(root, lp)
             overlay = root; overlayPkg = pkg; overlayIsGate = gate
+            muteBehind()
             true
         } catch (e: Exception) { false }
     }
@@ -364,6 +395,7 @@ class KitkaService : AccessibilityService() {
     private fun hideOverlay() {
         overlay?.let { try { wm?.removeView(it) } catch (e: Exception) { } }
         overlay = null; overlayPkg = null; overlayIsGate = false
+        unmute()
     }
 
     private fun fmtTime(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(hhmm)

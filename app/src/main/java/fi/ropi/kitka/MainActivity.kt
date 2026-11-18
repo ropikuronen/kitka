@@ -254,6 +254,7 @@ class MainActivity : Activity() {
             val ht = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), 0, 0, 0) }
             ht.addView(big(String.format(EN, "%.1f years", s.yearsBy80), 36f))
             ht.addView(tv("of waking life over 80 years, at your current pace.", 14f, Pal.SOFT).apply { setPadding(0, dp(4), 0, 0) })
+            ht.addView(tv(String.format(EN, "Based on %d min a day, your average over the last %d days.", Math.round(if (s.paceDays > 0) s.pace else s.avg7), if (s.paceDays > 0) s.paceDays else 7), 12f, Pal.MUTED).apply { setPadding(0, dp(6), 0, 0) })
             r.addView(ht, LinearLayout.LayoutParams(0, WRAP, 1f))
             h.addView(r)
             col.addView(h); tourTargets["B"] = h
@@ -403,6 +404,40 @@ class MainActivity : Activity() {
         if (s.hours[worst] > 0) hc.addView(small("Your worst hour: ${String.format(EN, "%02d", worst)} to ${String.format(EN, "%02d", (worst + 1) % 24)}."))
         col.addView(hc)
 
+        val wk = weeks(s).takeLast(8)
+        if (wk.size >= 2) {
+            col.addView(label("Weeks"))
+            col.addView(card(top = 0).apply {
+                addView(BarChart(this@MainActivity).apply {
+                    values = wk.map { it.second }
+                    labelsTop = wk.map { "" }
+                    labelsBottom = wk.map { it.first.format(weekFmt) }
+                    highlight = wk.size - 1
+                })
+                addView(small("Average minutes per day, week by week."))
+            })
+        }
+
+        val apps = Db.get(this).appsByDay()
+        if (apps.isNotEmpty()) {
+            val today = LocalDate.now()
+            val perWeek = java.util.TreeMap<LocalDate, HashMap<String, Long>>()
+            for ((d, m) in apps) {
+                val day = runCatching { LocalDate.parse(d) }.getOrNull() ?: continue
+                val w = perWeek.getOrPut(day.with(java.time.DayOfWeek.MONDAY)) { HashMap() }
+                for ((p, v) in m) w[p] = (w[p] ?: 0L) + v
+            }
+            col.addView(label("Apps, week by week"))
+            col.addView(card(top = 0).apply {
+                for ((i, e) in perWeek.entries.reversed().take(6).withIndex()) {
+                    if (i > 0) addView(divider())
+                    addView(tv("Week of ${e.key.format(weekFmt)}" + if (e.key == today.with(java.time.DayOfWeek.MONDAY)) " (now)" else "", 13f, Pal.MUTED).apply { setPadding(0, dp(10), 0, dp(2)) })
+                    for ((p, v) in e.value.toList().sortedByDescending { it.second }.take(3)) addView(kv(s.labels[p] ?: Stats.labelOf(this@MainActivity, p) ?: p, fmtMin(v)))
+                }
+            })
+        }
+        if (History.oldest(this).isNotEmpty()) col.addView(small("FinalApp has your data from ${History.oldest(this)} and saves every new day for good."))
+
         val now = LocalDate.now()
         col.addView(label(now.month.getDisplayName(java.time.format.TextStyle.FULL, EN)))
         val cal = card(top = 0, pad = 14)
@@ -437,6 +472,20 @@ class MainActivity : Activity() {
         col.addView(cal)
     }
 
+
+    /** Monday-based weeks from the saved history, newest last: (monday, avg min/day, days with data). */
+    private fun weeks(s: Stats): List<Triple<LocalDate, Float, Int>> {
+        val today = LocalDate.now()
+        val byWeek = java.util.TreeMap<LocalDate, MutableList<Long>>()
+        for ((d, m) in s.history) {
+            if (!d.isBefore(today)) continue
+            byWeek.getOrPut(d.with(java.time.DayOfWeek.MONDAY)) { ArrayList() }.add(m)
+        }
+        return byWeek.map { (k, v) -> Triple(k, v.sum() / v.size.toFloat(), v.size) }
+    }
+
+    private val weekFmt = DateTimeFormatter.ofPattern("d MMM", EN)
+
     // ---------- Science ----------
 
     private fun renderScience(s: Stats, inRules: Boolean = false) {
@@ -459,6 +508,32 @@ class MainActivity : Activity() {
         e.addView(days)
         e.addView(small(if (s.afterDays >= 7) "${s.afterDays} days with FinalApp. A test on one person: it tells you about you." else "Day ${s.afterDays} of 7."))
         col.addView(e)
+
+        val wk = weeks(s)
+        if (wk.isNotEmpty()) {
+            col.addView(label("Week by week"))
+            val wc = card(top = 0)
+            val first = wk.first().second
+            val sinceDay = if (s.since > 0) java.time.Instant.ofEpochMilli(s.since).atZone(java.time.ZoneId.systemDefault()).toLocalDate() else null
+            for ((i, w) in wk.reversed().withIndex()) {
+                if (i > 0) wc.addView(divider())
+                val (mon, avg, n) = w
+                val before = sinceDay != null && mon.plusDays(6).isBefore(sinceDay)
+                val change = if (first > 0f && w != wk.first()) Math.round((avg - first) / first * 100) else null
+                val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, dp(10)) }
+                val t = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                t.addView(tv("Week of ${mon.format(weekFmt)}", 15f, Pal.INK, Fonts.MED))
+                t.addView(tv((if (before) "Before FinalApp" else "With FinalApp") + if (n < 7) " · $n days" else "", 12f, Pal.MUTED))
+                r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
+                val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+                v.addView(tv("${Math.round(avg)} min/day", 15f, Pal.INK, Fonts.MED))
+                if (change != null) v.addView(tv(if (change <= 0) "−${-change} %" else "+$change %", 12f, Pal.SOFT))
+                r.addView(v)
+                wc.addView(r)
+            }
+            wc.addView(small("Compared with your first saved week."))
+            col.addView(wc)
+        }
 
         val p = card().apply { background = rounded(Pal.INK, dpf(18f)) }
         p.addView(caps("Our promise", Pal.BG))
