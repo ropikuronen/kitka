@@ -9,10 +9,11 @@ import android.os.Build
 import android.provider.Settings
 
 object Perms {
-    fun overlay(ctx: Context): Boolean = Settings.canDrawOverlays(ctx)
-
-    /** True when the pause can run: it needs both permissions. */
-    fun accessibility(ctx: Context): Boolean = overlay(ctx) && Usage.hasPermission(ctx)
+    fun accessibility(ctx: Context): Boolean {
+        val expected = ComponentName(ctx, KitkaService::class.java)
+        val enabled = Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        return enabled.split(':').any { ComponentName.unflattenFromString(it) == expected }
+    }
 
     fun usage(ctx: Context) = Usage.hasPermission(ctx)
 
@@ -20,11 +21,17 @@ object Perms {
         Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED
 
 
-    fun openOverlay(ctx: Context) {
-        try { ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }
-        catch (e: Exception) { ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }
+    /** Google Play requires this disclosure and an explicit yes before the Accessibility setting is opened. */
+    fun openAccessibility(ctx: Context) {
+        val act = ctx as? android.app.Activity
+        if (act == null) { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); return }
+        android.app.AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("FinalApp uses Accessibility")
+            .setMessage("FinalApp uses the Accessibility service only to notice when an app you chose (like TikTok or Instagram) opens, so it can show the pause, and when its feed moves to the next video, so it can count videos.\n\nIt does not read what is on your screen, your messages or your passwords, and it sends none of this anywhere.\n\nYou can turn it off any time in Settings.")
+            .setPositiveButton("Agree") { _, _ -> act.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            .setNegativeButton("Not now", null)
+            .show()
     }
-
     fun openUsage(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     fun openAppInfo(ctx: Context) =
         ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
