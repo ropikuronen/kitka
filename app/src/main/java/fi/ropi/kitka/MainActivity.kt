@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter
 class MainActivity : Activity() {
 
     companion object {
-        const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/app.apk"
+        const val APK_URL = "https://github.com/ropikuronen/kitka/releases/latest/download/finalapp-store.apk"
         const val TODAY = 0; const val HISTORY = 1; const val SCIENCE = 2; const val RULES = 3
         const val URGE = 4; const val CREATOR = 5; const val LEAGUE = 6
         val TAB_PAGES = intArrayOf(0, 1, 2, 3)
@@ -109,6 +109,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (!::col.isInitialized) return
         Proof.schedule(this)
+        Thread { Backup.daily(this) }.start()
         render()
         if (allApps == null) Thread {
             val a = Perms.installedApps(this)
@@ -337,10 +338,8 @@ class MainActivity : Activity() {
 
     private fun updateCard(latest: Int) {
         val c = card(top = 16)
-        c.addView(tv("Update available", 17f, Pal.INK, Fonts.BOLD))
-        c.addView(body("Build $latest is ready. You have build ${currentBuild()}.", Pal.MUTED, 14f))
-        c.addView(button("Download", primary = true) { Perms.openUrl(this, APK_URL) })
-        c.addView(small("Install it over this one. Your data stays."))
+        c.addView(tv("New update available", 17f, Pal.INK, Fonts.BOLD))
+        c.addView(button("Update", primary = true) { Perms.openUrl(this, APK_URL) })
         col.addView(c)
     }
 
@@ -571,6 +570,7 @@ class MainActivity : Activity() {
         sup.addView(st, LinearLayout.LayoutParams(0, WRAP, 1f))
         sup.addView(tv("↗", 18f, Pal.MUTED))
         col.addView(sup, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+        col.addView(small("Your data is backed up every day to Documents/FinalApp on this phone. It stays there even if you delete FinalApp." + (if (Backup.lastDay(this).isNotEmpty()) " Last backup: ${Backup.lastDay(this)}." else "")))
         col.addView(small("Build ${currentBuild()}"))
     }
 

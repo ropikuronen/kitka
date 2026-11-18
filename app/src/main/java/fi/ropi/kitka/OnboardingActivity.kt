@@ -137,6 +137,26 @@ class OnboardingActivity : Activity() {
         content.addView(big("Stop scrolling.", 56f).apply { setPadding(0, dp(16), 0, 0) })
         content.addView(tv("Built only on what the research actually shows works.", 22f, Pal.SOFT).apply { setPadding(0, dp(16), 0, 0) })
         content.addView(tv("100% free. Forever.", 17f, Pal.INK, Fonts.MED).apply { setPadding(0, dp(32), 0, 0) })
+        content.addView(underlineLink("Used FinalApp before? Restore my data") {
+            try {
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), 77)
+            } catch (e: Exception) { }
+        }.apply { setPadding(0, dp(28), 0, 0) })
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 77 || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try {
+            val saved = Backup.restore(this, uri)
+            android.widget.Toast.makeText(this, "Restored your data from $saved.", android.widget.Toast.LENGTH_LONG).show()
+            Proof.schedule(this)
+            finishOnboarding()
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, e.message ?: "Could not restore.", android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun guessStep() {

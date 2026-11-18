@@ -119,6 +119,7 @@ class ProofReceiver : BroadcastReceiver() {
             try {
                 Proof.notify(ctx)
                 try { League.sync(ctx) } catch (e: Exception) { }
+                Backup.daily(ctx)
             } finally {
                 Proof.schedule(ctx)
                 pending.finish()
