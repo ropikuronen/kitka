@@ -21,7 +21,17 @@ object Perms {
         Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED
 
 
-    fun openAccessibility(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    /** Google Play requires this disclosure and an explicit yes before the Accessibility setting is opened. */
+    fun openAccessibility(ctx: Context) {
+        val act = ctx as? android.app.Activity
+        if (act == null) { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); return }
+        android.app.AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("FinalApp uses Accessibility")
+            .setMessage("FinalApp uses the Accessibility service only to notice when an app you chose (like TikTok or Instagram) opens, so it can show the pause, and when its feed moves to the next video, so it can count videos.\n\nIt does not read what is on your screen, your messages or your passwords, and it sends none of this anywhere.\n\nYou can turn it off any time in Settings.")
+            .setPositiveButton("Agree") { _, _ -> act.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            .setNegativeButton("Not now", null)
+            .show()
+    }
     fun openUsage(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     fun openAppInfo(ctx: Context) =
         ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
