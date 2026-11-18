@@ -110,37 +110,54 @@ class KitkaService : AccessibilityService() {
         }
     }
 
-    private var lastIndex = -1
-    private var lastIndexClass = ""
-    private var accY = 0
+    private var lastSingle = -1
+    private var lastSingleCls = ""
+    private var burstY = 0
+    private var burstAt = 0L
 
     /**
-     * Counts one video only when the feed really moves to the next item:
-     * the list's item index changes, or the feed moves vertically by at least
-     * about a third of the screen. Taps, likes, comments and sideways movement
-     * also fire scroll events, but move neither, so they are not counted.
+     * A video feed (Reels, TikTok, Shorts, Spotlight) shows one item at a time: when it settles,
+     * the first and last visible item are the same. A chat or a normal list shows many at once.
+     * So one video = the single visible item changes. If an app gives no item numbers, one
+     * fast swipe of at least about 60 % of the screen counts instead. Lists that do give item
+     * numbers and show several items never count, so scrolling a chat is not a video.
      */
     private fun onScroll(pkg: String, e: AccessibilityEvent) {
         if (overlay != null || pkg != sessionPkg) return
         val cls = e.className?.toString() ?: ""
+        val from = e.fromIndex; val to = e.toIndex
+        log(pkg, cls, from, to, e.itemCount, e.scrollDeltaY)
         var moved = false
-        val idx = e.fromIndex
-        if (idx >= 0) {
-            if (cls == lastIndexClass && lastIndex >= 0 && idx != lastIndex) moved = true
-            lastIndex = idx; lastIndexClass = cls
-        }
-        val dy = e.scrollDeltaY
-        if (dy != -1 && dy != 0) {
-            accY += Math.abs(dy)
-            if (accY >= resources.displayMetrics.heightPixels / 3) moved = true
+        if (from >= 0 && to >= 0) {
+            if (from == to) {
+                if (cls == lastSingleCls && lastSingle >= 0 && from != lastSingle) moved = true
+                lastSingle = from; lastSingleCls = cls
+            }
+        } else {
+            val dy = e.scrollDeltaY
+            if (dy != -1 && dy != 0) {
+                val now = System.currentTimeMillis()
+                if (now - burstAt > 600) burstY = 0
+                burstAt = now
+                burstY += Math.abs(dy)
+                if (burstY >= resources.displayMetrics.heightPixels * 6 / 10) { moved = true; burstY = 0 }
+            }
         }
         if (!moved) return
-        accY = 0
         val now = System.currentTimeMillis()
         if (now - lastScrollAt < SCROLL_GAP_MS) return
         lastScrollAt = now
         Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++
         updateTimer(sessionEnd - System.currentTimeMillis())
+    }
+
+    /** Last scroll events, kept only on the phone, so a wrong count can be fixed per app. */
+    private fun log(pkg: String, cls: String, from: Int, to: Int, count: Int, dy: Int) {
+        try {
+            val f = java.io.File(filesDir, "scroll-log.txt")
+            if (f.length() > 60_000) f.writeText(f.readLines().takeLast(200).joinToString("\n") + "\n")
+            f.appendText("${System.currentTimeMillis() % 100_000_000} $pkg ${cls.substringAfterLast('.')} from=$from to=$to n=$count dy=$dy\n")
+        } catch (e: Exception) { }
     }
 
     // ---------- screens ----------
@@ -246,7 +263,7 @@ class KitkaService : AccessibilityService() {
     private fun startSession(pkg: String, minutes: Int) {
         Db.get(this).log(pkg, Ev.CONTINUE)
         hideOverlay()
-        sessionPkg = pkg; lastIndex = -1; lastIndexClass = ""; accY = 0
+        sessionPkg = pkg; lastSingle = -1; lastSingleCls = ""; burstY = 0
         sessionStart = System.currentTimeMillis()
         sessionEnd = sessionStart + minutes * 60_000L
         sessionSwipes = 0

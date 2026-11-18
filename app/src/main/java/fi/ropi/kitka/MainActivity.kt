@@ -436,7 +436,19 @@ class MainActivity : Activity() {
                 }
             })
         }
-        if (History.oldest(this).isNotEmpty()) col.addView(small("FinalApp has your data from ${History.oldest(this)} and saves every new day for good."))
+        val months = History.monthTotals(this).toSortedMap()
+        if (months.isNotEmpty()) {
+            col.addView(label("Months"))
+            col.addView(card(top = 0).apply {
+                for ((i, e) in months.entries.reversed().withIndex()) {
+                    if (i > 0) addView(divider())
+                    val days = if (e.key.month == LocalDate.now().month && e.key.year == LocalDate.now().year) LocalDate.now().dayOfMonth else e.key.lengthOfMonth()
+                    addView(kv(e.key.format(DateTimeFormatter.ofPattern("MMMM yyyy", EN)), "${fmtMin(e.value)} · ${e.value / days.coerceAtLeast(1)} min/day"))
+                }
+                addView(small("From Android's monthly totals for your chosen apps."))
+            })
+        }
+        if (History.oldest(this).isNotEmpty()) col.addView(small("Day by day from ${History.oldest(this)}. Older weeks and months come from Android's totals. Every new day is saved for good."))
 
         val now = LocalDate.now()
         col.addView(label(now.month.getDisplayName(java.time.format.TextStyle.FULL, EN)))
@@ -473,7 +485,10 @@ class MainActivity : Activity() {
     }
 
 
-    /** Monday-based weeks from the saved history, newest last: (monday, avg min/day, days with data). */
+    /**
+     * Weeks, newest last: (start, avg min/day, days with daily data; 0 = from Android's weekly total).
+     * Daily data is exact. Older weeks come from Android's weekly totals, which start on Android's own day.
+     */
     private fun weeks(s: Stats): List<Triple<LocalDate, Float, Int>> {
         val today = LocalDate.now()
         val byWeek = java.util.TreeMap<LocalDate, MutableList<Long>>()
@@ -481,7 +496,15 @@ class MainActivity : Activity() {
             if (!d.isBefore(today)) continue
             byWeek.getOrPut(d.with(java.time.DayOfWeek.MONDAY)) { ArrayList() }.add(m)
         }
-        return byWeek.map { (k, v) -> Triple(k, v.sum() / v.size.toFloat(), v.size) }
+        val out = java.util.TreeMap<LocalDate, Triple<LocalDate, Float, Int>>()
+        for ((k, v) in byWeek) out[k] = Triple(k, v.sum() / v.size.toFloat(), v.size)
+        val firstDaily = s.history.keys.minOrNull()
+        for ((start, total) in History.weekTotals(this)) {
+            // Only weeks that end before the daily data starts, so nothing is counted twice.
+            if (firstDaily != null && !start.plusDays(6).isBefore(firstDaily)) continue
+            out[start] = Triple(start, total / 7f, 0)
+        }
+        return out.values.toList()
     }
 
     private val weekFmt = DateTimeFormatter.ofPattern("d MMM", EN)
@@ -523,7 +546,7 @@ class MainActivity : Activity() {
                 val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, dp(10)) }
                 val t = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                 t.addView(tv("Week of ${mon.format(weekFmt)}", 15f, Pal.INK, Fonts.MED))
-                t.addView(tv((if (before) "Before FinalApp" else "With FinalApp") + if (n < 7) " · $n days" else "", 12f, Pal.MUTED))
+                t.addView(tv((if (before) "Before FinalApp" else "With FinalApp") + when { n == 0 -> " · Android weekly total"; n < 7 -> " · $n days"; else -> "" }, 12f, Pal.MUTED))
                 r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
                 val v = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
                 v.addView(tv("${Math.round(avg)} min/day", 15f, Pal.INK, Fonts.MED))
@@ -646,6 +669,11 @@ class MainActivity : Activity() {
         sup.addView(tv("↗", 18f, Pal.MUTED))
         col.addView(sup, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         col.addView(small("Your data is backed up every day to Documents/FinalApp on this phone. It stays there even if you delete FinalApp." + (if (Backup.lastDay(this).isNotEmpty()) " Last backup: ${Backup.lastDay(this)}." else "")))
+        col.addView(underlineLink("Videos counted wrong? Copy a report") {
+            val f = java.io.File(filesDir, "scroll-log.txt")
+            val text = if (f.exists()) f.readLines().takeLast(120).joinToString("\n") else "No scroll events yet."
+            Perms.copy(this, text); toast("Copied. Paste it to the creator.")
+        })
         col.addView(small("Build ${currentBuild()}"))
     }
 
