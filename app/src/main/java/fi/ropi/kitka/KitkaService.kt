@@ -1,6 +1,14 @@
 package fi.ropi.kitka
 
-import android.accessibilityservice.AccessibilityService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.os.IBinder
+import android.os.PowerManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -10,7 +18,6 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -29,10 +36,15 @@ import java.time.format.DateTimeFormatter
  *  3. The app runs with a timer on top.
  *  4. Time is up: back to the home screen, the app is locked for a while.
  */
-class KitkaService : AccessibilityService() {
+class KitkaService : Service() {
 
     companion object {
         const val SCROLL_GAP_MS = 800L
+
+        fun start(ctx: Context) {
+            if (!Perms.overlay(ctx) || !Usage.hasPermission(ctx)) return
+            try { ctx.startForegroundService(Intent(ctx, KitkaService::class.java)) } catch (e: Exception) { }
+        }
 
         fun since(ctx: Context): Long =
             ctx.getSharedPreferences("kitka", Context.MODE_PRIVATE).getLong("since", 0L)
@@ -66,8 +78,37 @@ class KitkaService : AccessibilityService() {
         }
     }
 
-    override fun onServiceConnected() {
-        super.onServiceConnected()
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private var lastFg: String? = null
+    private var lastEventTs = 0L
+
+    /** Watches which app is in front, from Android's own usage events. No Accessibility needed. */
+    private val poll = object : Runnable {
+        override fun run() {
+            try {
+                val pm = getSystemService(PowerManager::class.java)
+                if (pm == null || pm.isInteractive) {
+                    val usm = getSystemService(UsageStatsManager::class.java)
+                    val now = System.currentTimeMillis()
+                    val ev = usm.queryEvents(maxOf(lastEventTs, now - 10_000), now + 1000)
+                    val e = UsageEvents.Event()
+                    var fg: String? = null
+                    while (ev.hasNextEvent()) {
+                        ev.getNextEvent(e)
+                        if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED && e.timeStamp >= lastEventTs) {
+                            fg = e.packageName; lastEventTs = e.timeStamp
+                        }
+                    }
+                    if (fg != null && fg != lastFg) { lastFg = fg; onWindow(fg) }
+                }
+            } catch (e: Exception) { }
+            handler.postDelayed(this, 700)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
         wm = getSystemService(WindowManager::class.java)
         val p = getSharedPreferences("kitka", Context.MODE_PRIVATE)
         if (!p.contains("since")) p.edit().putLong("since", System.currentTimeMillis()).apply()
@@ -80,13 +121,24 @@ class KitkaService : AccessibilityService() {
         } catch (e: Exception) { }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val e = event ?: return
-        val pkg = e.packageName?.toString() ?: return
-        when (e.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(pkg)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScroll(pkg, e)
-        }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm?.createNotificationChannel(NotificationChannel("running", "FinalApp is on", NotificationManager.IMPORTANCE_MIN))
+        val open = PendingIntent.getActivity(this, 30, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val n = Notification.Builder(this, "running").setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle("FinalApp is on").setContentText("The pause is watching your chosen apps.")
+            .setContentIntent(open).setOngoing(true).build()
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 34) startForeground(31, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            else startForeground(31, n)
+        } catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
+        handler.removeCallbacks(poll); handler.post(poll)
+        return START_STICKY
+    }
+
+    private fun goHome() {
+        try { startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+        lastFg = null
     }
 
     private fun onWindow(pkg: String) {
@@ -108,39 +160,6 @@ class KitkaService : AccessibilityService() {
             inSession -> showTimer()
             else -> showGate(pkg)
         }
-    }
-
-    private var lastIndex = -1
-    private var lastIndexClass = ""
-    private var accY = 0
-
-    /**
-     * Counts one video only when the feed really moves to the next item:
-     * the list's item index changes, or the feed moves vertically by at least
-     * about a third of the screen. Taps, likes, comments and sideways movement
-     * also fire scroll events, but move neither, so they are not counted.
-     */
-    private fun onScroll(pkg: String, e: AccessibilityEvent) {
-        if (overlay != null || pkg != sessionPkg) return
-        val cls = e.className?.toString() ?: ""
-        var moved = false
-        val idx = e.fromIndex
-        if (idx >= 0) {
-            if (cls == lastIndexClass && lastIndex >= 0 && idx != lastIndex) moved = true
-            lastIndex = idx; lastIndexClass = cls
-        }
-        val dy = e.scrollDeltaY
-        if (dy != -1 && dy != 0) {
-            accY += Math.abs(dy)
-            if (accY >= resources.displayMetrics.heightPixels / 3) moved = true
-        }
-        if (!moved) return
-        accY = 0
-        val now = System.currentTimeMillis()
-        if (now - lastScrollAt < SCROLL_GAP_MS) return
-        lastScrollAt = now
-        Db.get(this).log(pkg, Ev.SCROLL); sessionSwipes++
-        updateTimer(sessionEnd - System.currentTimeMillis())
     }
 
     // ---------- screens ----------
@@ -196,7 +215,7 @@ class KitkaService : AccessibilityService() {
         col.addView(button("Close", primary = true) {
             db.log(pkg, Ev.CLOSE)
             hideOverlay()
-            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            goHome()
         })
         val secs = pauseSeconds()
         val cont = button("Open anyway in $secs", primary = false) {}
@@ -238,7 +257,7 @@ class KitkaService : AccessibilityService() {
         col.addView(button("Close instead", primary = true) {
             Db.get(this).log(pkg, Ev.CLOSE)
             hideOverlay()
-            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            goHome()
         }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(24) })
         addOverlay(root, pkg, gate = true)
     }
@@ -246,7 +265,7 @@ class KitkaService : AccessibilityService() {
     private fun startSession(pkg: String, minutes: Int) {
         Db.get(this).log(pkg, Ev.CONTINUE)
         hideOverlay()
-        sessionPkg = pkg; lastIndex = -1; lastIndexClass = ""; accY = 0
+        sessionPkg = pkg
         sessionStart = System.currentTimeMillis()
         sessionEnd = sessionStart + minutes * 60_000L
         sessionSwipes = 0
@@ -262,10 +281,9 @@ class KitkaService : AccessibilityService() {
         val until = System.currentTimeMillis() + lockMin * 60_000L
         Store.lock(this, pkg, until)
         val usedMin = ((sessionEnd - sessionStart) / 60_000).toInt()
-        val swipes = sessionSwipes
         sessionPkg = null
         hideTimer()
-        performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        goHome()
 
         val name = appLabel(pkg)
         val (s, e) = Usage.dayBounds(LocalDate.now())
@@ -275,7 +293,7 @@ class KitkaService : AccessibilityService() {
         col.addView(tv("Your $usedMin minutes in $name are over.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
         col.addView(tv("It is locked until ${fmtTime(until)}.", 18f, Pal.MUTED))
         val c = card(top = 32)
-        c.addView(row(metric("$swipes", "Videos this session"), metric(if (todayMin >= 0) fmtMin(todayMin) else "-", "Today in $name")))
+        c.addView(metric(if (todayMin >= 0) fmtMin(todayMin) else "-", "Today in $name"))
         col.addView(c)
         col.addView(button("OK", primary = true) { hideOverlay() }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(32) })
         addOverlay(root, null, gate = false)
@@ -289,11 +307,11 @@ class KitkaService : AccessibilityService() {
         col.addView(tv("Until ${fmtTime(until)}. Your time was up.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
         col.addView(button("Close", primary = true) {
             hideOverlay()
-            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            goHome()
         }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(36) })
         col.addView(button("Ride out the urge", primary = false) {
             hideOverlay()
-            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            goHome()
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("open", "urge"))
         })
         addOverlay(root, pkg, gate = false)
@@ -318,7 +336,7 @@ class KitkaService : AccessibilityService() {
         (b.layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = dp(40) }
@@ -330,7 +348,7 @@ class KitkaService : AccessibilityService() {
     private fun updateTimer(leftMs: Long) {
         val t = timerText ?: return
         val secs = (leftMs / 1000).coerceAtLeast(0)
-        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left · $sessionSwipes videos"
+        t.text = "${secs / 60}:${String.format(EN, "%02d", secs % 60)} left"
         val total = (sessionEnd - sessionStart).coerceAtLeast(1)
         val f = (leftMs.toFloat() / total).coerceIn(0f, 1f)
         val b = timerBar ?: return
@@ -350,7 +368,7 @@ class KitkaService : AccessibilityService() {
         val manager = wm ?: return false
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.OPAQUE
         )
@@ -369,13 +387,6 @@ class KitkaService : AccessibilityService() {
     private fun fmtTime(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(hhmm)
 
     private fun appLabel(pkg: String): String = Stats.labelOf(this, pkg) ?: pkg
-
-    override fun onInterrupt() {}
-
-    override fun onUnbind(intent: Intent?): Boolean {
-        Store.markServiceOff(this)
-        return super.onUnbind(intent)
-    }
 
     override fun onDestroy() {
         Store.markServiceOff(this)

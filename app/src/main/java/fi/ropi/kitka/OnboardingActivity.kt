@@ -418,7 +418,7 @@ class OnboardingActivity : Activity() {
             c.addView(r)
             c.addView(divider())
         }
-        permRow("Accessibility", "Shows the pause and the timer. Installed apps > FinalApp > On.", Perms.accessibility(this)) { Perms.openAccessibility(this) }
+        permRow("Display over other apps", "Shows the pause and the timer on top of your apps. Find FinalApp and switch it on.", Perms.overlay(this)) { Perms.openOverlay(this) }
         permRow("Notifications", "For your Daily Proof at 21:00.", Perms.notifications(this)) {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 7)
         }

@@ -37,7 +37,7 @@ object Proof {
         val over = t.totalMin > s.limit
         val stake = Store.stake(ctx)
         val sb = StringBuilder()
-        sb.append("Today I scrolled ${fmtMin(t.totalMin)} and watched ${t.count(Ev.SCROLL)} videos. Closed $closed of $gates pauses.\n")
+        sb.append("Today I scrolled ${fmtMin(t.totalMin)}. Closed $closed of $gates pauses.\n")
         sb.append(if (over) "Over my ${s.limit} min limit." else "Under my ${s.limit} min limit.")
         if (stake > 0 && Store.friendPhone(ctx).isNotEmpty()) sb.append(if (over) " I owe you $stake €." else " I don't owe you $stake €.")
         val z = ZoneId.systemDefault()
@@ -111,7 +111,7 @@ object Proof {
 
 class ProofReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) { Proof.schedule(ctx); return }
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) { Proof.schedule(ctx); KitkaService.start(ctx); return }
         // Other apps can reach an exported receiver; ignore anything that is not our own 21:00 alarm.
         if (intent.action != null && intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val pending = goAsync()
