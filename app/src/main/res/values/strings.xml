@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FinalApp</string>
-    <string name="a11y_description">FinalApp shows a pause before the apps you choose. Close works at once. Open anyway unlocks after the pause, then you choose a time and the app closes when it is up. The service only sees which app is open and counts scroll events. It does not read what is on screen and sends nothing anywhere.</string>
+    <string name="a11y_description">FinalApp shows a pause before the apps you choose. Close works at once. Open anyway unlocks after the pause, then you choose a time and the app closes when it is up. The service sees which app is open and counts scroll events. In web browsers it reads only the address bar, to block the sites of the apps you chose. It does not read messages, passwords or anything else on screen, and sends nothing anywhere.</string>
 </resources>

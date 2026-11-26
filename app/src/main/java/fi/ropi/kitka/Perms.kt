@@ -27,7 +27,9 @@ object Perms {
         if (act == null) { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); return }
         android.app.AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("FinalApp uses Accessibility")
-            .setMessage("FinalApp uses the Accessibility service only to notice when an app you chose (like TikTok or Instagram) opens, so it can show the pause, and when its feed moves to the next video, so it can count videos.\n\nIt does not read what is on your screen, your messages or your passwords, and it sends none of this anywhere.\n\nYou can turn it off any time in Settings.")
+            .setMessage("FinalApp uses the Accessibility service only to notice when an app you chose (like TikTok or Instagram) opens, so it can show the pause, and when its feed moves to the next video, so it can count videos.\n\nIn browsers (Chrome, Samsung Internet, Google and others) it reads only the address bar, to block YouTube, Instagram, TikTok and the other sites on your list.
+
+It does not read your messages, your passwords or anything else on your screen, and it sends none of this anywhere.\n\nYou can turn it off any time in Settings.")
             .setPositiveButton("Agree") { _, _ -> act.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             .setNegativeButton("Not now", null)
             .show()

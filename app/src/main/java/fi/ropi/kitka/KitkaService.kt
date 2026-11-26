@@ -84,9 +84,78 @@ class KitkaService : AccessibilityService() {
         val e = event ?: return
         val pkg = e.packageName?.toString() ?: return
         when (e.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(pkg)
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> { onWindow(pkg); if (pkg in BROWSERS) checkBrowser(pkg, true) }
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScroll(pkg, e)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> if (pkg in BROWSERS) checkBrowser(pkg, false)
         }
+    }
+
+    // ---------- browsers ----------
+
+    private val BROWSERS = mapOf(
+        "com.android.chrome" to listOf("com.android.chrome:id/url_bar"),
+        "com.chrome.beta" to listOf("com.chrome.beta:id/url_bar"),
+        "com.sec.android.app.sbrowser" to listOf("com.sec.android.app.sbrowser:id/location_bar_edit_text", "com.sec.android.app.sbrowser:id/custom_tab_toolbar_url_bar_text"),
+        "com.google.android.googlequicksearchbox" to listOf("com.google.android.googlequicksearchbox:id/url", "com.google.android.googlequicksearchbox:id/search_box", "com.google.android.googlequicksearchbox:id/googleapp_omnibox_text"),
+        "org.mozilla.firefox" to listOf("org.mozilla.firefox:id/mozac_browser_toolbar_url_view"),
+        "com.brave.browser" to listOf("com.brave.browser:id/url_bar"),
+        "com.microsoft.emmx" to listOf("com.microsoft.emmx:id/url_bar"),
+        "com.opera.browser" to listOf("com.opera.browser:id/url_field"),
+        "com.duckduckgo.mobile.android" to listOf("com.duckduckgo.mobile.android:id/omnibarTextInput"),
+    )
+
+    /** Site -> the app it belongs to. A site is blocked in browsers when its app is on your list. */
+    private val SITES = listOf(
+        "youtube.com" to "com.google.android.youtube", "youtu.be" to "com.google.android.youtube",
+        "instagram.com" to "com.instagram.android",
+        "tiktok.com" to "com.zhiliaoapp.musically",
+        "facebook.com" to "com.facebook.katana", "fb.com" to "com.facebook.katana",
+        "snapchat.com" to "com.snapchat.android",
+        "reddit.com" to "com.reddit.frontpage",
+        "x.com" to "com.twitter.android", "twitter.com" to "com.twitter.android",
+        "linkedin.com" to "com.linkedin.android",
+        "pinterest.com" to "com.pinterest",
+    )
+    private val TIKTOK_ALT = setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")
+
+    private var lastBrowserCheck = 0L
+
+    /**
+     * Reads only the address bar of a browser, to see if a blocked site is open.
+     * Nothing else on the screen is read, and nothing is saved or sent.
+     */
+    private fun checkBrowser(pkg: String, force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastBrowserCheck < 700) return
+        lastBrowserCheck = now
+        if (overlay != null) return
+        val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return
+        var url: String? = null
+        for (id in BROWSERS[pkg] ?: emptyList()) {
+            val n = try { root.findAccessibilityNodeInfosByViewId(id) } catch (e: Exception) { null }
+            val t = n?.firstOrNull()?.text?.toString()
+            if (!t.isNullOrBlank()) { url = t; break }
+        }
+        val u = url?.lowercase()?.trim() ?: return
+        val host = u.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore('?').removePrefix("www.").removePrefix("m.")
+        val active = Targets.active(this)
+        for ((site, app) in SITES) {
+            val match = host == site || host.endsWith(".$site")
+            if (!match) continue
+            val listed = app in active || (app in TIKTOK_ALT && active.any { it in TIKTOK_ALT })
+            if (listed) { showBrowserBlock(pkg, site); return }
+        }
+    }
+
+    private fun showBrowserBlock(browser: String, site: String) {
+        val (root, col) = frame()
+        col.addView(tv("$site is blocked in the browser.", 32f, Pal.INK, Fonts.BOLD))
+        col.addView(tv("The pause only works in the app, so the browser is closed for it.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
+        col.addView(button("Close", primary = true) {
+            hideOverlay()
+            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(36) })
+        addOverlay(root, browser, gate = false)
     }
 
     private fun onWindow(pkg: String) {

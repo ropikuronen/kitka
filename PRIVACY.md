@@ -12,7 +12,7 @@ FinalApp helps you scroll less on social media apps. This page explains what dat
 None of this leaves your phone, except in the league described below.
 
 ## The Accessibility service
-FinalApp uses Android's Accessibility service only to notice when one of the apps you chose comes to the front and when its feed moves to the next video. It then shows a pause screen. It does not read the text, messages, passwords or anything else on your screen, and it does not record or send what you do.
+FinalApp uses Android's Accessibility service only to notice when one of the apps you chose comes to the front and when its feed moves to the next video. It then shows a pause screen. In web browsers it reads only the address bar, to block the sites of the apps you chose (for example youtube.com). It does not read messages, passwords or anything else on your screen, and it does not record or send what you do.
 
 ## League (optional)
 If you start or join a league, FinalApp sends your chosen league name and your minutes per day to Google Firebase, so the people in your league can see them. Nothing else is sent. You get a random anonymous account; no email, phone number or real name is needed. Leaving the league stops the updates.

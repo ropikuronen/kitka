@@ -30,6 +30,7 @@ class Stats(
     val age: Int,
     val pace: Float = 0f,                // average min/day over the last (up to) 28 days
     val paceDays: Int = 0,
+    val phoneTodayMin: Long = -1,        // whole phone today, every app
 ) {
     val today: Day get() = days[0]
     private val paceMin: Float get() = if (paceDays > 0) pace else avg7
@@ -93,7 +94,8 @@ class Stats(
 
             return Stats(days, targets, labels, since, avg7, hours, history, beforeAvg, bDays, afterAvg, after.size,
                 weekGates, weekClosed, wonBack, Rules.get(ctx, Rules.LIMIT), Store.age(ctx),
-                History.average(history, 28).first, History.average(history, 28).second)
+                History.average(history, 28).first, History.average(history, 28).second,
+                Usage.dayBounds(today).let { (a, b) -> Usage.phoneMs(ctx, a, minOf(b, System.currentTimeMillis())) / 60_000 })
         }
 
         fun labelOf(ctx: Context, pkg: String): String? = try {

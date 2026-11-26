@@ -213,6 +213,13 @@ class MainActivity : Activity() {
             a.addView(bar(t.totalMin.toFloat() / s.limit, 6).apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(12) })
             val over = t.totalMin - s.limit
             a.addView(tv(if (over > 0) "$over min over your ${s.limit} min limit." else "${-over} min left of your ${s.limit} min limit.", 14f, Pal.SOFT).apply { setPadding(0, dp(8), 0, 0) })
+            if (s.phoneTodayMin >= 0) {
+                a.addView(divider())
+                a.addView(kv("Whole phone today", fmtMin(s.phoneTodayMin)))
+                a.addView(kv("Your chosen apps", fmtMin(t.totalMin)))
+                a.addView(kv("Everything else", fmtMin((s.phoneTodayMin - t.totalMin).coerceAtLeast(0))))
+                a.addView(small("If \"everything else\" grows while your apps shrink, the scrolling moved, it didn't stop."))
+            }
         } else a.addView(body("Allow usage access to see your minutes."))
         a.addView(divider().apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14) })
         a.addView(row(metric("${t.count(Ev.SCROLL)}", "videos today"), metric("${t.count(Ev.CLOSE)} / ${t.gates}", "pauses closed")).apply { setPadding(0, dp(12), 0, 0) })

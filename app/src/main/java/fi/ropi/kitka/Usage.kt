@@ -49,7 +49,7 @@ object Usage {
                 continue
             }
             val pkg = ev.packageName ?: continue
-            if (pkg !in pkgs) continue
+            if (pkgs !== ALL && pkg !in pkgs) continue
             val cls = ev.className ?: ""
             when (type) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
@@ -70,6 +70,19 @@ object Usage {
         }
         for ((p, set) in resumed) if (set.isNotEmpty()) close(p, end)
         return out
+    }
+
+    /** Pass as pkgs to count every app. */
+    val ALL: Set<String> = setOf("*")
+
+    /** Whole-phone screen time in the range: every app except the home screen, system UI and FinalApp. */
+    fun phoneMs(ctx: Context, start: Long, end: Long): Long {
+        val skip = hashSetOf(ctx.packageName, "android", "com.android.systemui")
+        try {
+            ctx.packageManager.resolveActivity(android.content.Intent(android.content.Intent.ACTION_MAIN)
+                .addCategory(android.content.Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName?.let { skip.add(it) }
+        } catch (e: Exception) { }
+        return foregroundMs(ctx, start, end, ALL).filterKeys { it !in skip }.values.sum()
     }
 
     fun foregroundMs(ctx: Context, start: Long, end: Long, pkgs: Set<String>): Map<String, Long> {
