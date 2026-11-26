@@ -609,6 +609,12 @@ class MainActivity : Activity() {
         col.addView(list)
         appRows(list)
 
+        col.addView(label("Websites"))
+        val sl = card(top = 0, pad = 0).apply { setPadding(dp(16), 0, dp(16), 0) }
+        col.addView(sl)
+        siteRows(sl)
+        col.addView(small("Blocked in Chrome, Samsung Internet, Google, Firefox and other browsers. Adding works at once, removing takes 24 hours."))
+
         col.addView(label("How it holds you"))
         val rc = card(top = 0, pad = 0).apply { setPadding(dp(16), 0, dp(16), 0) }
         for ((i, r) in Rules.ALL.withIndex()) {
@@ -723,6 +729,47 @@ class MainActivity : Activity() {
             isClickable = true
             setOnClickListener { showAllApps = !showAllApps; appQuery = ""; render() }
         })
+    }
+
+    private fun siteRows(list: LinearLayout) {
+        list.removeAllViews()
+        val active = Sites.active(this)
+        val pending = Sites.pending(this)
+        val all = (Sites.PRESET + active.sorted()).distinct()
+        for (site in all) {
+            val on = site in active
+            val pend = pending[site]
+            val r = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(14), 0, dp(14)); isClickable = true
+                setOnClickListener {
+                    when {
+                        !on -> Sites.add(this@MainActivity, site)
+                        pend != null -> Sites.cancelRemove(this@MainActivity, site)
+                        else -> Sites.requestRemove(this@MainActivity, site)
+                    }
+                    siteRows(list)
+                }
+            }
+            val t = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            t.addView(tv(site, 16f, if (on) Pal.INK else Pal.MUTED))
+            if (pend != null) t.addView(tv("Leaves in ${fmtLeft(pend)}. Tap to cancel.", 13f, Pal.MUTED))
+            r.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
+            r.addView(dot(on, leaving = pend != null))
+            list.addView(r); list.addView(divider())
+        }
+        val add = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, dp(8)) }
+        val input = EditText(this).apply { hint = "Add a site, e.g. 9gag.com"; setHintTextColor(Pal.DIM); setTextColor(Pal.INK); textSize = 16f; setSingleLine()
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI }
+        add.addView(input, LinearLayout.LayoutParams(0, WRAP, 1f))
+        add.addView(tv("Add", 16f, Pal.INK, Fonts.MED).apply {
+            setPadding(dp(16), dp(12), 0, dp(12)); isClickable = true
+            setOnClickListener {
+                val s = Sites.clean(input.text.toString())
+                if (s == null) toast("Write a site like 9gag.com") else { Sites.add(this@MainActivity, s); siteRows(list) }
+            }
+        })
+        list.addView(add)
     }
 
     private fun editRule(r: Rules.Rule) {

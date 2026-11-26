@@ -104,20 +104,6 @@ class KitkaService : AccessibilityService() {
         "com.duckduckgo.mobile.android" to listOf("com.duckduckgo.mobile.android:id/omnibarTextInput"),
     )
 
-    /** Site -> the app it belongs to. A site is blocked in browsers when its app is on your list. */
-    private val SITES = listOf(
-        "youtube.com" to "com.google.android.youtube", "youtu.be" to "com.google.android.youtube",
-        "instagram.com" to "com.instagram.android",
-        "tiktok.com" to "com.zhiliaoapp.musically",
-        "facebook.com" to "com.facebook.katana", "fb.com" to "com.facebook.katana",
-        "snapchat.com" to "com.snapchat.android",
-        "reddit.com" to "com.reddit.frontpage",
-        "x.com" to "com.twitter.android", "twitter.com" to "com.twitter.android",
-        "linkedin.com" to "com.linkedin.android",
-        "pinterest.com" to "com.pinterest",
-    )
-    private val TIKTOK_ALT = setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")
-
     private var lastBrowserCheck = 0L
 
     /**
@@ -137,20 +123,14 @@ class KitkaService : AccessibilityService() {
             if (!t.isNullOrBlank()) { url = t; break }
         }
         val u = url?.lowercase()?.trim() ?: return
-        val host = u.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore('?').removePrefix("www.").removePrefix("m.")
-        val active = Targets.active(this)
-        for ((site, app) in SITES) {
-            val match = host == site || host.endsWith(".$site")
-            if (!match) continue
-            val listed = app in active || (app in TIKTOK_ALT && active.any { it in TIKTOK_ALT })
-            if (listed) { showBrowserBlock(pkg, site); return }
-        }
+        val host = Sites.clean(u) ?: return
+        Sites.match(this, host)?.let { showBrowserBlock(pkg, it) }
     }
 
     private fun showBrowserBlock(browser: String, site: String) {
         val (root, col) = frame()
         col.addView(tv("$site is blocked in the browser.", 32f, Pal.INK, Fonts.BOLD))
-        col.addView(tv("The pause only works in the app, so the browser is closed for it.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
+        col.addView(tv("It is on your Websites list. Removing it takes 24 hours.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
         col.addView(button("Close", primary = true) {
             hideOverlay()
             performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
