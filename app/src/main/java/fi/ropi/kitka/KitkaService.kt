@@ -131,11 +131,27 @@ class KitkaService : AccessibilityService() {
         val (root, col) = frame()
         col.addView(tv("$site is blocked in the browser.", 32f, Pal.INK, Fonts.BOLD))
         col.addView(tv("It is on your Websites list. Removing it takes 24 hours.", 18f, Pal.MUTED).apply { setPadding(0, dp(10), 0, 0) })
-        col.addView(button("Close", primary = true) {
-            hideOverlay()
-            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
-        }.apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(36) })
+        col.addView(button("Close", primary = true) { leaveSite(browser) }
+            .apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(36) })
         addOverlay(root, browser, gate = false)
+    }
+
+    /**
+     * Moves the browser off the blocked site so it can be used again: opens a plain Google
+     * page in the same browser. The blocked tab stays behind and is blocked again if opened.
+     */
+    private fun leaveSite(browser: String) {
+        hideOverlay()
+        lastBrowserCheck = System.currentTimeMillis() + 1500   // let the new page load before checking again
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.google.com"))
+                .setPackage(browser)
+                .putExtra("com.android.browser.application_id", packageName)
+                .putExtra("create_new_tab", true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        }
     }
 
     private fun onWindow(pkg: String) {
